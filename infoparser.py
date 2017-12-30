@@ -204,25 +204,6 @@ print(xml)
 if len(brace_state) > 0:
     print('Mismatched Braces!')
 
-
-# We now have an xml string
-def dictify(r,root=True):
-    if root:
-        return {r.tag : dictify(r, False)}
-    d=copy(r.attrib)
-    if r.text:
-        d["_text"]=r.text
-        for x in r.findall("./*"):
-            if x.tag not in d:
-                d[x.tag]=[]
-                d[x.tag].append(dictify(x,False))
-                return d
-
 # Parse the string to make sure XML is well formed
 root = ET.fromstring(xml)
 
-# Transform the xml into a dictionary for ease of use
-xml_dict = dictify(root)
-
-# Let's look at the structure using json representation
-#print(json.dumps(xml_dict,indent=2))

@@ -3,3 +3,4 @@ test-data/
 *.pyc
 *.out
 *.xml
+parsetab.py
