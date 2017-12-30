@@ -59,9 +59,17 @@ tokens = (
     'COM',
     'UNIT',
 
+    # There are major divisions, we achieve this with modifiers
+    'DICOM',
+    'MEAS',
+    'MEASYAPS',
+    'PHOENIX',
+    'SPICE',
+
     # one liners
     'LEFTHAND'
 )
+
 
 # Regular expression rules for simple tokens
 t_LANGLE = r'<'
@@ -116,7 +124,17 @@ t_VISIBLE = r'Visible'
 t_COM = r'Comment'
 t_UNIT = r'Unit'
 
-t_LEFTHAND = r'[a-zA-Z\[\]0-9\. _]+='
+t_DICOM = r'Dicom'
+t_MEAS = r'Meas'
+t_MEASYAPS = r'MeasYaps'
+t_PHOENIX = r'Phoenix'
+t_SPICE = r'Spice'
+
+def t_LEFTHAND(t):
+     r'[a-zA-Z\[\]0-9\. _]+='
+     # remove the equal sign at the end
+     t.value = t.value[:-1]
+     return(t)
 
 # Comments are ignored
 def t_COMMENT(t):

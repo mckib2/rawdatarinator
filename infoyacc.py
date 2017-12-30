@@ -66,7 +66,13 @@ def p_modifier(p):
                 | INFILE
                 | VISIBLE
                 | COM
-                | UNIT'''
+                | UNIT
+
+                | DICOM
+                | MEAS
+                | MEASYAPS
+                | PHOENIX
+                | SPICE'''
 
     global mod
     mod = '"' + p[1] + '"'
@@ -87,6 +93,7 @@ def p_line(p):
             | LANGLE modifier RANGLE FLOAT
 
             | LEFTHAND
+            | LANGLE modifier RANGLE LEFTHAND
             | HEX
             | SCINOT'''
 
@@ -141,7 +148,8 @@ def p_line(p):
                     xml += n.openString() + xml_clean(p[4]) + n.closeString()
             else:
                 xml += n.openString() + xml_clean(p[1]) + n.closeString()
-       
+
+
 def p_tag(p):
     '''tag : LANGLE tagtype PERIOD STRING RANGLE
            | LANGLE tagtype RANGLE'''

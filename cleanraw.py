@@ -13,23 +13,23 @@ def cleanraw(filename):
         
     # We get the same kind of junk before <XProtocol> and after Dicom
     trouble = re.search(r'Dicom.*<XProtocol>',info)
-    info = info.replace(info[trouble.start():trouble.end() - len('<XProtocol>')],'')
+    info = info.replace(info[trouble.start():trouble.end()],'<Dicom> <XProtocol>')
         
     # And again with Meas...<XProtocol>
     trouble = re.search(r'.Meas.*<XProtocol>',info)
-    info = info.replace(info[trouble.start():trouble.end() - len('<XProtocol>')],'')
+    info = info.replace(info[trouble.start():trouble.end()],'<Meas> <XProtocol>')
         
     # Guess what - with MeasYaps...### ASC..., too
     trouble = re.search(r'.MeasYaps.*###',info)
-    info = info.replace(info[trouble.start():trouble.end() - len('###')],'')
+    info = info.replace(info[trouble.start():trouble.end() - len('###')],'\n <MeasYaps>')
         
     # Found another...
     trouble = re.search(r'.Phoenix.*<XProtocol>',info)
-    info = info.replace(info[trouble.start():trouble.end() - len('<XProtocol>')],'')
+    info = info.replace(info[trouble.start():trouble.end()],'<Phoenix> <XProtocol>')
         
     # This time we're missing a breakline
     trouble = re.search(r'.Spice.*<XProtocol>',info)
-    info = info.replace(info[trouble.start():trouble.end() - len('<XProtocol>')],'\n')
+    info = info.replace(info[trouble.start():trouble.end()],'\n<Spice> <XProtocol>\n')
         
     # Get rid of everything at the end we don't want right now
     end = info.rfind('}') + 1
