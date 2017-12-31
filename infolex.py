@@ -133,7 +133,7 @@ t_SPICE = r'Spice'
 def t_LEFTHAND(t):
      r'[a-zA-Z\[\]0-9\. _]+='
      # remove the equal sign at the end
-     t.value = t.value[:-1]
+     t.value = t.value[:-1].rstrip()
      return(t)
 
 # Comments are ignored
