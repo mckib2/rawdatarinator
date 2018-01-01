@@ -240,13 +240,31 @@ def readMeasDataVB15(filename):
         
     ### Calculation of the number of valid k-space readouts and k-space data matrix dimensions
     if data['PATMode'] is 1:
-        data['nReadout'] = data['nAverage']*data['nPhase']*data['nRepetition']*data['nContrast']*data['Nsl']*data['Nz']*data['Nc']*data['Ny']
+        data['nReadout'] = (
+            data['nAverage']*    \
+            data['nPhase']*      \
+            data['nRepetition']* \
+            data['nContrast']*   \
+            data['Nsl']*         \
+            data['Nz']*          \
+            data['Nc']*          \
+            data['Ny'])
+        
     elif (data['PATMode'] is 2) and (data['PATRefScanMode'] is 2):
         if (data['Ny'] % 2) is 1:
             data['NyPAT'] = (data['Ny'] - 1 + data['nRefLinesPE']*(data['AccelFactorPE'] - 1))/data['AccelFactorPE']
         else:
             data['NyPAT'] = np.floor((data['Ny'] + data['nRefLinesPE']*(data['AccelFactorPE'] - 1))/data['AccelFactorPE'])
-        data['nReadout'] = data['nAverage']*data['nPhase']*data['nRepetition']*data['nContrast']*data['Nsl']*data['Nz']*data['Nc']*data['NyPAT']
+
+        data['nReadout'] = (
+            data['nAverage']*    \
+            data['nPhase']*      \
+            data['nRepetition']* \
+            data['nContrast']*   \
+            data['Nsl']*         \
+            data['Nz']*          \
+            data['Nc']*          \
+            data['NyPAT'])
 
     if removeOS is True:
         data['kSpace'] = np.zeros((
@@ -281,7 +299,17 @@ def readMeasDataVB15(filename):
             data['NxOS']), dtype=np.float32)
 
     if readNavigator is True:
-        data['nNavigator'] = data['nAverage']*data['nPhase']*data['nRepetition']*data['nContrast']*data['Nsl']*data['Nz']*data['Nc']*data['nEPITrain']*data['nNavEK']
+        data['nNavigator'] = (
+            data['nAverage']*    \
+            data['nPhase']*      \
+            data['nRepetition']* \
+            data['nContrast']*   \
+            data['Nsl']*         \
+            data['Nz']*          \
+            data['Nc']*          \
+            data['nEPITrain']    \
+            *data['nNavEK'])
+        
         data['kNavigator'] = np.zeros((
             data['nAverage'],
             data['nPhase'],
@@ -294,7 +322,13 @@ def readMeasDataVB15(filename):
             data['NxOS']), dtype=np.float32)
 
     if readTimeStamp is True:
-        data['nTimeStamp'] = data['nAverage']*data['nPhase']*data['nRepetition']*data['nContrast']*data['Nz']
+        data['nTimeStamp'] = (
+            data['nAverage']*    \
+            data['nPhase']*      \
+            data['nRepetition']* \
+            data['nContrast']*   \
+            data['Nz'])
+        
         data['timeStamp'] = np.zeros((
             data['nAverage'],
             data['nPhase'],
