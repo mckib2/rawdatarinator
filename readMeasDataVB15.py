@@ -1,6 +1,6 @@
 from infoparser import raw2xml
 import xml.etree.ElementTree as ET
-import re
+import re, os
 import numpy as np
 
 def get_val_by_text(root,search):
@@ -35,6 +35,24 @@ def readMeasDataVB15(filename):
     # data.
     removeOS = False
     removeOSafter = False # note this works in image space, cutting FOV. Not likely good idea for radial
+
+    # transformToImageSpace should be equal to 1 to get image space
+    # representation. Take into account that no correction for partial Fourier
+    # or parallel imaging k-space undersampling is done.
+    # The given version of code only uses FFT operation.
+    transformToImageSpace = False
+
+    writeToFile = True # True => save k-space or image space volume
+    if writeToFile is True:
+        filename_temp = filename[0:len(filename) - 4]
+    if transformToImageSpace is False:
+        filenameOut = '%s_Kspace' % filename_temp
+    else:
+        filenameOut = '%s_imageSpace' % filename
+    
+    # Useful Parameters
+    globalHeader = 32
+    localHeader = 128
 
     
     xmlstr = raw2xml(filename)
@@ -233,7 +251,7 @@ def readMeasDataVB15(filename):
     data['nTSETrain'] = data['Ny']/data['turboFactor']
 
     data['Nc0'] = data['Nc']
-    if readOneCoil == 1:
+    if readOneCoil is True:
         data['Nc'] = 1
     else:
         data['Nc'] = data['Nc0']
@@ -338,17 +356,236 @@ def readMeasDataVB15(filename):
 
     ### Data Readout and Reordering
     # Read k-space data
-    noiseMeasCounter = 0
-    noiseMeas = np.zeros((data['NxOS'],data['Nc']))
-    navigatorPrep = 0
-    LineN = -1
-    Ndr = 1
+    data['noiseMeasCounter'] = 0
+    data['noiseMeas'] = np.zeros((data['NxOS'],data['Nc']),dtype=np.complex64)
+    data['navigatorPrep'] = 0
+    data['LineN'] = -1
+    data['Ndr'] = 1
 
-    #for r in range(data['Ndr']):
-    #    xCoil = r
-        
+    for r in range(data['Ndr']):
+        data['xCoil'] = r
+        with open(filename,'r') as f:
+            readFlag = True
+            skipField = 0
+            count = 0
+            countNavigator = 0
+            navigatorDataON = 0
+
+            temp1 = np.zeros(data['NxOS'])
+            data['dataField'] = np.fromfile(f,dtype=np.int32,count=1)[0]
+            f.seek(data['dataField'],os.SEEK_SET)
+            while readFlag is True:
+                if readTimeStamp is True:
+                    f.seek(12,os.SEEK_CUR)
+                    data['timeS'] = np.fromfile(f,dtype=np.uint32,count=1)[0]
+                    f.seek(4,os.SEEK_CUR)
+                else:
+                    f.seek(20,os.SEEK_CUR)
+
+                data['evalMask1'] = np.fromfile(f,dtype=np.uint32,count=1)[0]
+                data['evalMask2'] = np.fromfile(f,dtype=np.uint32,count=1)[0]
+
+                # NOTE: these are zero index based
+                flag = [(33 - m.start()) for m in re.finditer('1',np.binary_repr(data['evalMask1'],32))]
+                
+                vals = [
+                    ('Nxr',None,None),
+                    ('Ncr',None,None),
+                    ('Line',None,None),
+                    ('Acquisition',None,None),
+                    ('Slice',None,None),
+                    ('Partition',None,None),
+                    ('Echo',None,None),
+                    ('Phase',None,None),
+                    ('Repetition',None,None),
+                    ('Set',None,None),
+                    ('CutOffDataPre',None,lambda:f.seek(12,os.SEEK_CUR)),
+                    ('CutOffDataPost',None,None),
+                    ('KSpaceCentreColumn',None,None),
+                    ('CoilMode',None,None),
+                    ('ReadOutOffCentre',np.float32,None),
+                    ('KSpaceCentreLineNo',None,lambda:f.seek(4,os.SEEK_CUR)),
+                    ('KSpaceCentrePartitionNo',None,None),
+                    ('Channel',None,lambda:f.seek(44,os.SEEK_CUR)) ]
+
+                for tup in vals:
+                    t = np.uint16 if tup[1] is None else tup[1]
+                    tup[2]
+                    data[tup[0]] = np.fromfile(f,dtype=t,count=1)[0]
+
+                f.seek(2,os.SEEK_CUR)
+                
+                if 0 not in flag:
+                    break
+
+                if not any([k for k in [1,21,25] if k in flag]):
+                    if (21 in flag) and (readPhaseCorInfo is False):
+                        skipField = data['nPhCorScan']*data['nPhCorEcho']*data['Ncr']*(localHeader + 8*data['Nxr']) - localHeader
+
+                    if (21 not in flag) and (readPhaseCorInfo is True):
+                        skipField = -localHeader
+                        f.seek(skipField,os.SEEK_CUR)
+                        skipField = 0
+
+                        for m in range(data['nPhCorScan']*data['nPhCorEcho']*data['Ncr']):
+                            infoMDH_TimeStamp = readMDH_TimeStamp_VB13(f)
+                            temp = np.fromfile(f,dtype=np.float32,count=2*data['Nxr'])
+
+                            if 24 not in flag:
+                                temp[0:2:] = np.flipud(temp[0:2:])
+                                temp[1:2:] = np.flipud(temp[1:2:])
+
+                            if data['CutOffDataPre'] > 0:
+                                # Check the indexing...
+                                temp[0:2*data['CutOffDataPre']] = 0
+
+                            if data['CutOffDataPost'] > 0:
+                                temp[len(temp) - 2*data['CutOffDataPost']:] = 0
+
+                            data['kPhaseCor'][data['Echo']][np.ceil(m/data['Ncr'])][data['Slice']][data['Repetition']][data['Channel']][:] = (temp[0:2:] + i*temp[1:2:]).astype(np.float32)
+
+                    if (1 not in flag) and (readNavigator is False):
+                        skipField = data['Ncr']*(localHeader + 8*data['Nxr']) - localHeader
+                    if (1 not in flag) and (readNavigator is True):
+                        if (countNavigator is False) and (navigatorPrep is False):
+                            kNavigator = np.zeros((
+                                data['Nxr'],
+                                data['Ncr'],
+                                data['nContrast']*nNavEK,
+                                data['nEPITrain'],
+                                data['Nz'],
+                                data['Nsl'],
+                                data['nAverage'],
+                                data['nPhase'],
+                                data['nRepetition']),dtype=np.float32)
+                            kNavigatorTemp = np.zeros((
+                                data['Nxr'],
+                                data['Ncr'],
+                                data['nContrast']*nNavEK),dtype=float32)
+                            navigatorPrep = 1
+
+                        skipField = -localHeader
+                        f.seek(skipField,os.SEEK_CUR)
+                        skipField = 0
+
+                        for m in range(nNavEK*data['Ncr']):
+                            infoMDH_TimeStamp = readMDH_TimeStamp_VB13(f)
+                            temp = np.fromfile(f,dtype=np.float32,count=2*data['Nxr'])
+
+                            if 24 not in flag:
+                                temp[0:2:] = np.flipud(temp[0:2:])
+                                temp[1:2:] = np.flipud(temp[1:2:])
+
+                            if data['CutOffDataPre'] > 0:
+                                temp[0:2*data['CutOffDataPre']] = 0
+                            if data['CutOffDataPost'] > 0:
+                                temp[len(temp) - 2*data['CutOffDataPost']-1:] = 0;
+                            kNavigatorTemp[:][data['Channel']][data['Echo']] = (temp[0:2:] + i*temp[1:2:]).astype(np.complex64)
+
+                        navigatorDataON = True
+
+                    if 25 not in flag:
+                        temp = np.fromfile(f,dtype=np.float32,count=2*data['Nxr'])
+
+                        if 24 not in flag:
+                            temp[0:2:] = np.flipud(temp[0:2:])
+                            temp[1:2:] = np.flipud(temp[1:2:])
+
+                        data['noiseMeas'][:][data['Channel']] = temp[0:2:] + i*temp[1:2:]
+                        skipField = 0
+
+                    f.seek(skipField,os.SEEK_CUR)
+
+                else:
+                    temp = np.fromfile(f,dtype=np.float32,count=2*data['Nxr'])
+                    if 24 not in flag:
+                        temp[0:2:] = np.flipud(temp[0:2:])
+                        temp[1:2:] = np.flipud(temp[1:2:])
+                    if data['CutOffDataPre'] > 0:
+                        temp[0:2*data['CutOffDataPre']-1] = 0
+                    if data['CutOffDataPost'] > 0:
+                        temp[len(temp) - 2*data['CutOffDataPost']-1] = 0
+                    if 10 not in flag:
+                        temp = data['CorrFactor'][data['Channel']]*temp
+                    temp = data['FFTCorrFactor'][data['Channel']]*temp
+
+                    if readOneCoil is False:
+                        if removeOS is True:
+                            temp1[len(temp1) - data['Nxr']:] = temp[0:2:] + i*temp[1:2:]
+                            tempX = np.fftshift(np.fft(np.fftshift(temp1)))
+                            tempK = np.fftshift(np.ifftshift(np.fftshift(tempX[np.around((data['NxOS'] - data['Nx'])/2):data['Nx'] + np.around((data['NxOS'] - data['Nx'])/2)])))
+                            data['kSpace'][data['Acquisition']][data['Phase']][data['Repetition']][data['Echo']][data['Slice']][data['Channel']][data['Partition']][:][data['Line']] = tempK.astype(np.complex64)
+                        else:
+                            data['kSpace'][data['Acquisition']][data['Phase']][data['Repetition']][data['Echo']][data['Slice']][data['Channel']][data['Partition']][data['kSpace'].shape[7] - data['Nxr']:][data['Line']] = (temp[0:2:] + i*temp[1:2:]).astype(np.complex64)
+
+                        count += 1
+
+                    elif (readOneCoil is True) and (data['Channel']+1 == coilIndex):
+                        if removeOS is True:
+                            temp1[len(temp1) - data['Nxr']:] = temp[0:2:] + i*temp[1:2:]
+                            tempx = np.fftshift(np.fft(np.fftshift(temp1)))
+                            tempK = np.fftshift(np.fft(np.fftshift(tempX[np.around((data['NxOS'] - data['Nx'])/2):data['Nx'] + np.around((data['NxOS'] - data['Nx'])/2)])))
+                            data['kSpace'][data['Acquisition']][data['Phase']][data['Repetition']][data['Echo']][data['Slice']][0][data['Partition']+1][:][data['Line']] = tempK.astype(np.complex64)
+                        else:
+                            data['kSpace'][data['Acquisition']][data['Phase']][data['Repetition']][data['Echo']][data['Slice']][0][data['Partition']][data['kSpace'].shape[7] - data['Nxr']:][data['Line']] = (temp[0:2:] + i*temp[1:2:]).astype(np.complex64)
+
+                        count += 1
+
+                    if (readTimeStamp is True) and (data['Channel'] == 0) and (navigatorDataON is True):
+                        data['EPITrain'] = countNavigator % data['nEPITrain']
+                        timeStamp[data['Echo']][data['EPITrain']][data['Partition']][data['Slice']][data['Acquisition']][data['Phase']][data['Repetition']] = (0.0025*timeS).astype(np.complex64)
+
+                    if (readNavigator is True) and (data['Channel'] == 0) and (navigatorDataON is True):
+                        data['EPITrain'] = countNavigator % data['nEPITrain']
+                        kNavigator[:][:][:][data['EPITrain']][data['Partition']][data['Slice']][data['Acquisition']][data['Phase']][data[Repetition]] = kNavigatorTemp.astype(np.complex64)
+                        navigatorDataON = False
+                        countNavigator += 1
     
+                if 0 not in flag:
+                    break
+
+
+    data['kSpace'] = np.squeeze(data['kSpace'])
+
+    if len(data['kSpace'].shape) == 3:
+        data['kSpace'] = np.transpose(data['kSpace'],[1,2,0])
+    elif len(data['kSpace'].shape) == 4:
+        if data['flag3D'] is False:
+            data['kSpace'] = np.transpose(data['kSpace'],[2,3,0,1])
+        else:
+            data['kSpace'] = np.transpose(data['kSpace'],[2,3,1,0])
+    elif len(data['kSpace'].shape) == 5:
+        data['kSpace'] = np.transpose(data['kSpace'],[3,4,2,0,1])
+
+    DataName = 'kSpace'
+    if transformToImageSpace is True:
+        data['imSpace'] = (data['NxOS']*np.fftshift(np.ifft(np.fftshift(data['kSpace'],1),[],1),1)).astype(np.complex64)
+        data['imSpace'] = data['Ny']*np.fftshift(np.ifft(np.fftshift(data['imSpace'],2),[],2),2)
+
+        if data['flag3D'] is True:
+            data['imSpace'] = data['Nz']*np.fftshift(np.ifft(np.fftshift(data['imSpace'],3),[],3),3)
+
+        if (removeOSafter is True) and (removeOS is False):
+            if len(data['imSpace'].shape) == 2:
+                data['imSpace'][0:data['NxOS']/4][:] = []
+                data['imSpace'][data['imSpace'].shape[0] - data['NxOS']/4 :][:] = []
+            elif len(data['imSpace'].shape) == 3:
+                data['imSpace'][0:data['NxOS']/4][:][:] = []
+                data['imSpace'][data['imSpace'].shape[0] - data['NxOS']/4:][:][:] = []
+            elif len(data['imSpace'].shape) == 4:
+                data['imSpace'][0:data['NxOS']/4][:][:][:] = []
+                data['imSpace'][data['imSpace'].shape[0] - data['NxOS']/4:][:][:][:] = []
+            elif len(data['imSpace'].shape) == 5:
+                data['imSpace'][0:data['NxOS']/4][:][:][:][:] = []
+                data['imSpace'][data['imSpace'].shape[0] - data['NxOS']/4:][:][:][:][:] = []
+
+        DataName = 'imSpace'
+
+    if writeToFile is True:
+        pass
+        
     # Give back the dictionary of values
+    
     return(data)
     
 

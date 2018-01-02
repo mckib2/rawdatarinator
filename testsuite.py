@@ -12,9 +12,14 @@ pydata = readMeasDataVB15('test-data/test.dat')
 passed = 0
 failed = 0
 warning = 0
-for key,val in pydata.items():
+
+# Sort the keys alphabetically so we can make our way around more quickly
+keys = sorted(pydata.keys(),key=str.lower)
+
+for key in keys:
+    val = pydata[key]
     if key not in wkspace:
-        print(Fore.YELLOW + 'Warning: ' + Fore.RESET + 'key %s' % key)
+        print(Fore.YELLOW + 'Warning: ' + Fore.RESET + '%s' % key)
         print('\tKey does not exist in MATLAB!')
         warning += 1
         continue
@@ -29,8 +34,8 @@ for key,val in pydata.items():
     # If they're arrays, then do an array comparison
     elif type(val) is np.ndarray:
         matval = wkspace[key]
-        matvalcmp = np.transpose(matval)[0]
-        test = lambda x,y: not np.array_equal(x,y)
+        matvalcmp = np.squeeze(matval) # scipy introduces extra singleton dims
+        test = lambda x,y: not np.allclose(x,y)
     else:
         test = lambda x,y: x != y
 
@@ -39,8 +44,12 @@ for key,val in pydata.items():
         failed += 1
         valshow = val.shape if type(val) is np.ndarray else val
         matshow = matvalcmp.shape if type(val) is np.ndarray else matvalcmp
+
+        if key == 'noiseMeas':
+            print(matvalcmp)
+            print(val)
         
-        print(Fore.RED + 'Error: ' + Fore.RESET + 'key %s' % key)
+        print(Fore.RED + 'Error: ' + Fore.RESET + '%s' % key)
         print('\tMATLAB: %s %s\n' % (matshow,type(matval)) +
               '\tMATCON: %s %s\n' % (matshow,type(matvalcmp)) +
               '\tPYTHON: %s %s'   % (valshow,type(val)))
