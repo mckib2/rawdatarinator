@@ -1,6 +1,6 @@
 from infoparser import raw2xml
 import xml.etree.ElementTree as ET
-import re, os
+import re, os, pdb
 import numpy as np
 
 def get_val_by_text(root,search):
@@ -369,11 +369,13 @@ def readMeasDataVB15(filename):
             skipField = 0
             count = 0
             countNavigator = 0
-            navigatorDataON = 0
+            navigatorDataON = False
 
             temp1 = np.zeros(data['NxOS'])
             data['dataField'] = np.fromfile(f,dtype=np.int32,count=1)[0]
             f.seek(data['dataField'],os.SEEK_SET)
+
+            pdb.set_trace()
             while readFlag is True:
                 if readTimeStamp is True:
                     f.seek(12,os.SEEK_CUR)
@@ -384,9 +386,9 @@ def readMeasDataVB15(filename):
 
                 data['evalMask1'] = np.fromfile(f,dtype=np.uint32,count=1)[0]
                 data['evalMask2'] = np.fromfile(f,dtype=np.uint32,count=1)[0]
-
+                
                 # NOTE: these are zero index based
-                flag = [(33 - m.start()) for m in re.finditer('1',np.binary_repr(data['evalMask1'],32))]
+                flag = [(32 - m.start()) for m in re.finditer('1',np.binary_repr(data['evalMask1'],32))]
                 
                 vals = [
                     ('Nxr',None,None),
@@ -415,14 +417,14 @@ def readMeasDataVB15(filename):
 
                 f.seek(2,os.SEEK_CUR)
                 
-                if 0 not in flag:
+                if 1 in flag:
                     break
 
-                if not any([k for k in [1,21,25] if k in flag]):
-                    if (21 in flag) and (readPhaseCorInfo is False):
+                if not all([k for k in [2,22,26] if k in flag]):
+                    if (22 in flag) and (readPhaseCorInfo is False):
                         skipField = data['nPhCorScan']*data['nPhCorEcho']*data['Ncr']*(localHeader + 8*data['Nxr']) - localHeader
 
-                    if (21 not in flag) and (readPhaseCorInfo is True):
+                    if (22 in flag) and (readPhaseCorInfo is True):
                         skipField = -localHeader
                         f.seek(skipField,os.SEEK_CUR)
                         skipField = 0
@@ -431,9 +433,9 @@ def readMeasDataVB15(filename):
                             infoMDH_TimeStamp = readMDH_TimeStamp_VB13(f)
                             temp = np.fromfile(f,dtype=np.float32,count=2*data['Nxr'])
 
-                            if 24 not in flag:
-                                temp[0:2:] = np.flipud(temp[0:2:])
-                                temp[1:2:] = np.flipud(temp[1:2:])
+                            if 25 in flag:
+                                temp[0::2] = np.flipud(temp[0::2])
+                                temp[1::2] = np.flipud(temp[1::2])
 
                             if data['CutOffDataPre'] > 0:
                                 # Check the indexing...
@@ -442,11 +444,11 @@ def readMeasDataVB15(filename):
                             if data['CutOffDataPost'] > 0:
                                 temp[len(temp) - 2*data['CutOffDataPost']:] = 0
 
-                            data['kPhaseCor'][data['Echo']][np.ceil(m/data['Ncr'])][data['Slice']][data['Repetition']][data['Channel']][:] = (temp[0:2:] + i*temp[1:2:]).astype(np.float32)
+                            data['kPhaseCor'][data['Echo'],np.ceil(m/data['Ncr']),data['Slice'],data['Repetition'],data['Channel'],:] = (temp[0::2] + 1j*temp[1::2]).astype(np.float32)
 
-                    if (1 not in flag) and (readNavigator is False):
+                    if (2 in flag) and (readNavigator is False):
                         skipField = data['Ncr']*(localHeader + 8*data['Nxr']) - localHeader
-                    if (1 not in flag) and (readNavigator is True):
+                    if (2 in flag) and (readNavigator is True):
                         if (countNavigator is False) and (navigatorPrep is False):
                             kNavigator = np.zeros((
                                 data['Nxr'],
@@ -472,76 +474,76 @@ def readMeasDataVB15(filename):
                             infoMDH_TimeStamp = readMDH_TimeStamp_VB13(f)
                             temp = np.fromfile(f,dtype=np.float32,count=2*data['Nxr'])
 
-                            if 24 not in flag:
-                                temp[0:2:] = np.flipud(temp[0:2:])
-                                temp[1:2:] = np.flipud(temp[1:2:])
+                            if 25 in flag:
+                                temp[0::2] = np.flipud(temp[0::2])
+                                temp[1::2] = np.flipud(temp[1::2])
 
                             if data['CutOffDataPre'] > 0:
                                 temp[0:2*data['CutOffDataPre']] = 0
                             if data['CutOffDataPost'] > 0:
                                 temp[len(temp) - 2*data['CutOffDataPost']-1:] = 0;
-                            kNavigatorTemp[:][data['Channel']][data['Echo']] = (temp[0:2:] + i*temp[1:2:]).astype(np.complex64)
+                            kNavigatorTemp[:,data['Channel'],data['Echo']] = (temp[0::2] + 1j*temp[1::2]).astype(np.complex64)
 
                         navigatorDataON = True
 
-                    if 25 not in flag:
+                    if 26 in flag:
                         temp = np.fromfile(f,dtype=np.float32,count=2*data['Nxr'])
 
-                        if 24 not in flag:
-                            temp[0:2:] = np.flipud(temp[0:2:])
-                            temp[1:2:] = np.flipud(temp[1:2:])
+                        if 25 in flag:
+                            temp[0::2] = np.flipud(temp[0::2])
+                            temp[1::2] = np.flipud(temp[1::2])
 
-                        data['noiseMeas'][:][data['Channel']] = temp[0:2:] + i*temp[1:2:]
+                        data['noiseMeas'][:,data['Channel']] = temp[0::2] + 1j*temp[1::2]
                         skipField = 0
 
                     f.seek(skipField,os.SEEK_CUR)
 
                 else:
                     temp = np.fromfile(f,dtype=np.float32,count=2*data['Nxr'])
-                    if 24 not in flag:
-                        temp[0:2:] = np.flipud(temp[0:2:])
-                        temp[1:2:] = np.flipud(temp[1:2:])
+                    if 25 in flag:
+                        temp[0::2] = np.flipud(temp[0::2])
+                        temp[1::2] = np.flipud(temp[1::2])
                     if data['CutOffDataPre'] > 0:
                         temp[0:2*data['CutOffDataPre']-1] = 0
                     if data['CutOffDataPost'] > 0:
                         temp[len(temp) - 2*data['CutOffDataPost']-1] = 0
-                    if 10 not in flag:
+                    if 11 in flag:
                         temp = data['CorrFactor'][data['Channel']]*temp
                     temp = data['FFTCorrFactor'][data['Channel']]*temp
 
                     if readOneCoil is False:
                         if removeOS is True:
-                            temp1[len(temp1) - data['Nxr']:] = temp[0:2:] + i*temp[1:2:]
+                            temp1[len(temp1) - data['Nxr']:] = temp[0::2] + 1j*temp[1::2]
                             tempX = np.fftshift(np.fft(np.fftshift(temp1)))
                             tempK = np.fftshift(np.ifftshift(np.fftshift(tempX[np.around((data['NxOS'] - data['Nx'])/2):data['Nx'] + np.around((data['NxOS'] - data['Nx'])/2)])))
-                            data['kSpace'][data['Acquisition']][data['Phase']][data['Repetition']][data['Echo']][data['Slice']][data['Channel']][data['Partition']][:][data['Line']] = tempK.astype(np.complex64)
+                            data['kSpace'][data['Acquisition'],data['Phase'],data['Repetition'],data['Echo'],data['Slice'],data['Channel'],data['Partition'],:,data['Line']] = tempK.astype(np.complex64)
                         else:
-                            data['kSpace'][data['Acquisition']][data['Phase']][data['Repetition']][data['Echo']][data['Slice']][data['Channel']][data['Partition']][data['kSpace'].shape[7] - data['Nxr']:][data['Line']] = (temp[0:2:] + i*temp[1:2:]).astype(np.complex64)
+                            data['kSpace'][data['Acquisition'],data['Phase'],data['Repetition'],data['Echo'],data['Slice'],data['Channel'],data['Partition'],data['kSpace'].shape[7] - data['Nxr']:data['kSpace'].shape[7],data['Line']] = (temp[0::2] + 1j*temp[1::2]).astype(np.complex64)
 
                         count += 1
 
                     elif (readOneCoil is True) and (data['Channel']+1 == coilIndex):
                         if removeOS is True:
-                            temp1[len(temp1) - data['Nxr']:] = temp[0:2:] + i*temp[1:2:]
+                            temp1[len(temp1) - data['Nxr']:] = temp[0::2] + 1j*temp[1::2]
                             tempx = np.fftshift(np.fft(np.fftshift(temp1)))
                             tempK = np.fftshift(np.fft(np.fftshift(tempX[np.around((data['NxOS'] - data['Nx'])/2):data['Nx'] + np.around((data['NxOS'] - data['Nx'])/2)])))
-                            data['kSpace'][data['Acquisition']][data['Phase']][data['Repetition']][data['Echo']][data['Slice']][0][data['Partition']+1][:][data['Line']] = tempK.astype(np.complex64)
+                            data['kSpace'][data['Acquisition'],data['Phase'],data['Repetition'],data['Echo'],data['Slice'],0,data['Partition'],:,data['Line']] = tempK.astype(np.complex64)
                         else:
-                            data['kSpace'][data['Acquisition']][data['Phase']][data['Repetition']][data['Echo']][data['Slice']][0][data['Partition']][data['kSpace'].shape[7] - data['Nxr']:][data['Line']] = (temp[0:2:] + i*temp[1:2:]).astype(np.complex64)
+                            data['kSpace'][data['Acquisition'],data['Phase'],data['Repetition'],data['Echo'],data['Slice'],0,data['Partition'],data['kSpace'].shape[7] - data['Nxr']:,data['Line']] = (temp[0::2] + 1j*temp[1::2]).astype(np.complex64)
 
                         count += 1
 
                     if (readTimeStamp is True) and (data['Channel'] == 0) and (navigatorDataON is True):
                         data['EPITrain'] = countNavigator % data['nEPITrain']
-                        timeStamp[data['Echo']][data['EPITrain']][data['Partition']][data['Slice']][data['Acquisition']][data['Phase']][data['Repetition']] = (0.0025*timeS).astype(np.complex64)
+                        timeStamp[data['Echo'],data['EPITrain'],data['Partition'],data['Slice'],data['Acquisition'],data['Phase'],data['Repetition']] = (0.0025*timeS).astype(np.complex64)
 
                     if (readNavigator is True) and (data['Channel'] == 0) and (navigatorDataON is True):
                         data['EPITrain'] = countNavigator % data['nEPITrain']
-                        kNavigator[:][:][:][data['EPITrain']][data['Partition']][data['Slice']][data['Acquisition']][data['Phase']][data[Repetition]] = kNavigatorTemp.astype(np.complex64)
+                        kNavigator[:,:,:,data['EPITrain'],data['Partition'],data['Slice'],data['Acquisition'],data['Phase'],data[Repetition]] = kNavigatorTemp.astype(np.complex64)
                         navigatorDataON = False
                         countNavigator += 1
     
-                if 0 not in flag:
+                if 1 in flag:
                     break
 
 
@@ -567,17 +569,17 @@ def readMeasDataVB15(filename):
 
         if (removeOSafter is True) and (removeOS is False):
             if len(data['imSpace'].shape) == 2:
-                data['imSpace'][0:data['NxOS']/4][:] = []
-                data['imSpace'][data['imSpace'].shape[0] - data['NxOS']/4 :][:] = []
+                data['imSpace'][0:data['NxOS']/4,:] = []
+                data['imSpace'][data['imSpace'].shape[0] - data['NxOS']/4 :,:] = []
             elif len(data['imSpace'].shape) == 3:
-                data['imSpace'][0:data['NxOS']/4][:][:] = []
-                data['imSpace'][data['imSpace'].shape[0] - data['NxOS']/4:][:][:] = []
+                data['imSpace'][0:data['NxOS']/4,:,:] = []
+                data['imSpace'][data['imSpace'].shape[0] - data['NxOS']/4:,:,:] = []
             elif len(data['imSpace'].shape) == 4:
-                data['imSpace'][0:data['NxOS']/4][:][:][:] = []
-                data['imSpace'][data['imSpace'].shape[0] - data['NxOS']/4:][:][:][:] = []
+                data['imSpace'][0:data['NxOS']/4,:,:,:] = []
+                data['imSpace'][data['imSpace'].shape[0] - data['NxOS']/4:,:,:,:] = []
             elif len(data['imSpace'].shape) == 5:
-                data['imSpace'][0:data['NxOS']/4][:][:][:][:] = []
-                data['imSpace'][data['imSpace'].shape[0] - data['NxOS']/4:][:][:][:][:] = []
+                data['imSpace'][0:data['NxOS']/4,:,:,:,:] = []
+                data['imSpace'][data['imSpace'].shape[0] - data['NxOS']/4:,:,:,:,:] = []
 
         DataName = 'imSpace'
 
