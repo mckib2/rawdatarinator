@@ -1,6 +1,6 @@
 from infoparser import raw2xml
 import xml.etree.ElementTree as ET
-import re, os, pdb
+import re, os#, pdb
 import numpy as np
 
 def get_val_by_text(root,search):
@@ -375,7 +375,7 @@ def readMeasDataVB15(filename):
             data['dataField'] = np.fromfile(f,dtype=np.int32,count=1)[0]
             f.seek(data['dataField'],os.SEEK_SET)
 
-            pdb.set_trace()
+            #pdb.set_trace()
             while readFlag is True:
                 if readTimeStamp is True:
                     f.seek(12,os.SEEK_CUR)
@@ -412,15 +412,16 @@ def readMeasDataVB15(filename):
 
                 for tup in vals:
                     t = np.uint16 if tup[1] is None else tup[1]
-                    tup[2]
+                    if hasattr(tup[2], '__call__'):
+                        tup[2]()
                     data[tup[0]] = np.fromfile(f,dtype=t,count=1)[0]
 
                 f.seek(2,os.SEEK_CUR)
-                
+
                 if 1 in flag:
                     break
 
-                if not all([k for k in [2,22,26] if k in flag]):
+                if any([k for k in [2,22,26] if k in flag]):
                     if (22 in flag) and (readPhaseCorInfo is False):
                         skipField = data['nPhCorScan']*data['nPhCorEcho']*data['Ncr']*(localHeader + 8*data['Nxr']) - localHeader
 
