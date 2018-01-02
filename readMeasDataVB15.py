@@ -1,9 +1,22 @@
 from infoparser import raw2xml
 import xml.etree.ElementTree as ET
-import re, os#, pdb
+import re, os
 import numpy as np
 
 def get_val_by_text(root,search):
+    """From MeasYaps XML root find next sibling of node matching 'search'.
+    
+    MeasYaps looks like:
+    <value>Key</value>
+    <value>Value</value>
+    Thus 'search' is the Key and we want to find the node that has the Value.
+    We return the node containing the desired Value.
+
+    Arguments:
+    root   -- root XML node (e.g., xml.etree.ElementTree Element)
+    search -- String to match Element.text
+    """
+    
     found_flag = False
     for el in root.iter():
         if found_flag:
@@ -13,36 +26,58 @@ def get_val_by_text(root,search):
             found_flag = True
 
 def get_yaps_by_name(root,name,afun=lambda x:x,default=None):
+    """From XML root, return value of node matching attribute 'name'.
+
+    Arguments:
+    root    -- root XML node (e.g., xml.etree.ElementTree Element). This is the
+               root of the entire XML document, not the YAPS subtree.
+    name    -- name='name' attribute of ParamLong tag to be matched.
+    afun    -- Anonymous function in the form of a lambda expression to process
+               the string value. Defaults to the identity function.
+    default -- Default value if node is not found. Defaults to 'None'.
+    """
+
     node = root.find("ParamMap[@name='YAPS']/ParamLong[@name='%s']/value" % name)
     if node is not None:
         return(afun(node.text))
     else:
         return(default)
-            
-def readMeasDataVB15(filename):
+
+
+def readMeasDataVB15(filename,
+                     resetFFTscale=False,
+                     readOneCoil=False,
+                     readPhaseCorInfo=False,
+                     readNavigator=False,
+                     readTimeStamp=True,
+                     nNavEK=False,
+                     removeOS=False,
+                     removeOSafter=False,
+                     transformToImageSpace=False,
+                     writeToFile=True):
     ### Flags:
-    resetFFTscale = False # True => resets FFTscale and DataCorrection for each coil to 1
-    readOneCoil = False # True => read Meas Data from Individual Coil
-    readPhaseCorInfo = False
-    readNavigator = False
-    readTimeStamp = True
-    nNavEK = False
+    #resetFFTscale = False # True => resets FFTscale and DataCorrection for each coil to 1
+    #readOneCoil = False # True => read Meas Data from Individual Coil
+    #readPhaseCorInfo = False
+    #readNavigator = False
+    #readTimeStamp = True
+    #nNavEK = False
     
     # Flags to remove oversampling (OS) in x-direction
     # One of these flags should be equal to 1 to remove OS.
     # removeOS=1 is more efficient as it processes each readout line
     # independently reducing the required memory space to keep all measured
     # data.
-    removeOS = False
-    removeOSafter = False # note this works in image space, cutting FOV. Not likely good idea for radial
+    #removeOS = False
+    #removeOSafter = False # note this works in image space, cutting FOV. Not likely good idea for radial
 
     # transformToImageSpace should be equal to 1 to get image space
     # representation. Take into account that no correction for partial Fourier
     # or parallel imaging k-space undersampling is done.
     # The given version of code only uses FFT operation.
-    transformToImageSpace = False
+    #transformToImageSpace = False
 
-    writeToFile = True # True => save k-space or image space volume
+    #writeToFile = True # True => save k-space or image space volume
     if writeToFile is True:
         filename_temp = filename[0:len(filename) - 4]
     if transformToImageSpace is False:
