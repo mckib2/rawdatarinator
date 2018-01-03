@@ -1,6 +1,7 @@
+#!/usr/bin/env python
 from infoparser import raw2xml
 import xml.etree.ElementTree as ET
-import re, os
+import re, os, sys
 import numpy as np
 
 def get_val_by_text(root,search):
@@ -64,48 +65,64 @@ def readMeasDataVB15(filename,
     """Read raw data from Siemens MRI scanners with IDEA VB15 (single value).
 
     Will return an array of measured k-space data from raw data from Siemens MRI
-    scanners using IDEA VB15 (single value). If the argument
-    'transformToImageSpace' is set to True, then image space data will be
-    returned instead.
+    scanners using IDEA VB15 (single value). If the option '-I' is used, then
+    image space data will be returned instead.
 
-    Arguments:
-    filename        (String) Filename of file containing raw measurements.
+    Usage:
+    readMeasDataVB15 filename [ -t ] [ -rfft ] [ -r1 ] [ -rp ] [ -rn ]
+                              [ -skipts ] [ -nnavek ] [ -ros ] [ -rosa ] [ -I ]
+                              [ -w ]
+
+    Example:
+    readMeasDataVB15 raw.dat -w
+
+    Command-line Options:
+    filename        Filename of file containing raw measurements.
                     
-    resetFFTscale   (Bool) Resets FFTscale and DataCorrection for each coil to 1.
-                    Defaults to False.
+    -rfft (resetFFTscale)
+                    Resets FFTscale and DataCorrection for each coil to 1.
 
-    readOneCoil     (Bool) Read measurement data from from individual coil.
-                    Defaults to False.
+    -r1 (readOneCoil)
+                    Read measurement data from from individual coil.
 
-    readPhaseCorInfo
-                    (Bool) Defaults to False.
+    -rp (readPhaseCorInfo)
+                    _
 
-    readNavigator   (Bool) Defaults to False.
+    -rn (readNavigator)
+                    _
 
-    readTimeStamp   (Bool) Defaults to True.
+    -skipts (skip readTimeStamp)
+                    _
 
-    nNavEK          (Bool) Defaults to False.
+    -nnavek (nNavEK)
+                    _
 
-    removeOS        (Bool) Flag to remove oversampling (OS) in the x direction.
+    -ros (removeOS)
+                    Flag to remove oversampling (OS) in the x direction.
                     removeOS=True is more efficient as it processes each readout
                     line independently, reducing the required memory space to
-                    keep all measured data. Defaults to False.
+                    keep all measured data.
 
-    removeOSafter   (Bool) Flag to remove oversampling (OS) in the x direction.
+    -rosa (removeOSafter)
+                    Flag to remove oversampling (OS) in the x direction.
                     This works in image space, cutting FOV. Not likely a good
-                    idea for radial. Defaults to False.
+                    idea for radial.
 
-    transformToImageSpace
-                    (Bool) Produce image space representation. Note that there
-                    is no correction for partial Fourier or parallel imaging
-                    k-space undersampling.  The given version of code only uses
-                    numpy's FFT operation. Defaults to False.
+    -I (transformToImageSpace)
+                    Produce image space representation. Note that there is no
+                    correction for partial Fourier or parallel imaging k-space
+                    undersampling.  The given version of code only uses numpy's
+                    FFT operation.
 
-    writeToFile     (Bool) Save k-space or image space volume. Defaults to True.
+    -w (writeToFile)
+                    Save k-space or image space volume. Currently the output
+                    filename is auto generated.
+    
+    -h (help)
+                    Displays this documentation.
     """
     
-    if writeToFile is True:
-        filename_temp = os.path.splitext(filename)[0]
+    filename_temp = os.path.splitext(filename)[0]
     if transformToImageSpace is False:
         filenameOut = '%s_Kspace' % filename_temp
     else:
@@ -578,8 +595,8 @@ def readMeasDataVB15(filename,
 
     DataName = 'kSpace'
     if transformToImageSpace is True:
-        data['imSpace'] = (data['NxOS']*np.fftshift(np.ifft(np.fftshift(data['kSpace'],1),[],1),1)).astype(np.complex64)
-        data['imSpace'] = data['Ny']*np.fftshift(np.ifft(np.fftshift(data['imSpace'],2),[],2),2)
+        data['imSpace'] = (data['NxOS']*np.fft.fftshift(np.fft.ifft(np.fft.fftshift(data['kSpace'],1),[],1),1)).astype(np.complex64)
+        data['imSpace'] = data['Ny']*np.fft.fftshift(np.fft.ifft(np.fft.fftshift(data['imSpace'],2),[],2),2)
 
         if data['flag3D'] is True:
             data['imSpace'] = data['Nz']*np.fftshift(np.ifft(np.fftshift(data['imSpace'],3),[],3),3)
@@ -604,5 +621,48 @@ def readMeasDataVB15(filename,
         pass
 
     return(data)
-    
-readMeasDataVB15('test-data/test.dat')
+
+if __name__ == '__main__':
+
+    # Options and their defaults
+    options = { '-rfft': False,
+                '-r1': False,
+                '-rp': False,
+                '-rn': False,
+                '-skipts': False,
+                '-nnavek': False,
+                '-ros': False,
+                '-rosa': False,
+                '-I': False,
+                '-w': False }
+
+    if len(sys.argv) < 2:
+        print('Requires filename argument!')
+        print("Use option '-h' for help")
+        sys.exit(2)
+    elif '-h' in sys.argv:
+        print(readMeasDataVB15.__doc__)
+    else:
+        # The first argument should be the filename
+        if sys.argv[1] in options.keys():
+            print('The first argument should be the filename!')
+            sys.exit(2)
+        else:
+            for opt in sys.argv[2:]:
+                if opt not in options.keys():
+                    print("Skipping invalid option '%s', use '-h' for help" % opt)
+                else:
+                    options[opt] = True
+
+            # Run with all options assigned
+            readMeasDataVB15(sys.argv[1],
+                             resetFFTscale=options['-rfft'],
+                             readOneCoil=options['-r1'],
+                             readPhaseCorInfo=options['-rp'],
+                             readNavigator=options['-rn'],
+                             readTimeStamp=not options['-skipts'],
+                             nNavEK=options['-nnavek'],
+                             removeOS=options['-ros'],
+                             removeOSafter=options['-rosa'],
+                             transformToImageSpace=options['-I'],
+                             writeToFile=options['-w'])
