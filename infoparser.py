@@ -193,7 +193,6 @@ def raw2xml(filename):
     
     # load in the real data
     info = cleanraw(filename)
-
     result = parser.parse(info)
 
     # We have multiple roots, so we need to provide a parent

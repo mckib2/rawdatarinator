@@ -81,7 +81,7 @@ for key in keys:
             if key == 'noiseMeas':
                 print(matvalcmp)
                 print(val)
-            showerror(key,val,valshow,matval,matvalshow)
+            showerror(key,val,valshow,matval,matshow)
         else:
             passed += 1
             valprint = 'array' if type(val) is np.ndarray else val

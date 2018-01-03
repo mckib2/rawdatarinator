@@ -422,7 +422,7 @@ def readMeasDataVB15(filename,
             temp1 = np.zeros(data['NxOS'])
             data['dataField'] = np.fromfile(f,dtype=np.int32,count=1)[0]
             f.seek(data['dataField'],os.SEEK_SET)
-            
+
             while readFlag is True:
                 if readTimeStamp is True:
                     f.seek(12,os.SEEK_CUR)
@@ -434,7 +434,7 @@ def readMeasDataVB15(filename,
                 data['evalMask1'] = np.fromfile(f,dtype=np.uint32,count=1)[0]
                 data['evalMask2'] = np.fromfile(f,dtype=np.uint32,count=1)[0]
                 flag = [(32 - m.start()) for m in re.finditer('1',np.binary_repr(data['evalMask1'],32))]
-
+                
                 # Tuples: (key,dtype,afun)
                 vals = [ ('Nxr',None,None),
                          ('Ncr',None,None),
@@ -461,7 +461,7 @@ def readMeasDataVB15(filename,
                     data[tup[0]] = np.fromfile(f,dtype=t,count=1)[0]
 
                 f.seek(2,os.SEEK_CUR)
-
+                
                 if 1 in flag:
                     break
 
