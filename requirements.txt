@@ -1,0 +1,8 @@
+###### Requirements ######
+numpy
+scipy
+re
+colorama
+h5py
+matplotlib
+ply
