@@ -2,9 +2,17 @@
 
 Python implementation based on MATLAB version written by Eugene G. Kholmovski, PhD (UCAIR, Department of Radiology, University of Utah).
 
+The name of the project pays homage to the naming convention of the main antagonist in Disney's hit cartoon "Phineas and Ferb" (see <a href="http://phineasandferb.wikia.com/wiki/List_of_Doofenshmirtz%27s_schemes_and_inventions">List of Doofenshmirtz's schemes and inventions</a>).
+
 ## Installation
 
-`requirements.txt` contains package dependencies.
+`requirements.txt` contains package dependencies.  You can install it using pip like this:
+
+```
+git clone https://github.com/mckib2/raw-datar-inator.git
+cd raw-datar-inator
+pip install -r requirements.txt
+```
 
 ## readMeasDataVB15
 
