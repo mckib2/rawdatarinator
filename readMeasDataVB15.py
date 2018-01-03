@@ -61,17 +61,17 @@ def readMeasDataVB15(filename,
                      removeOS=False,
                      removeOSafter=False,
                      transformToImageSpace=False,
-                     writeToFile=True):
-    """Read raw data from Siemens MRI scanners with IDEA VB15 (single value).
+                     writeToFile=False):
+    """Read raw data from Siemens MRI scanners with IDEA VB15.
 
-    Will return an array of measured k-space data from raw data from Siemens MRI
-    scanners using IDEA VB15 (single value). If the option '-I' is used, then
-    image space data will be returned instead.
+    Will return an array of measured k-space data from raw data from
+    Siemens MRI scanners using IDEA VB15 (single value). If the option
+    '-I' is used, then image space data will be returned instead.
 
     Usage:
     readMeasDataVB15 filename [ -t ] [ -rfft ] [ -r1 ] [ -rp ] [ -rn ]
-                              [ -skipts ] [ -nnavek ] [ -ros ] [ -rosa ] [ -I ]
-                              [ -w ]
+                              [ -skipts ] [ -nnavek ] [ -ros ]
+                              [ -rosa ] [ -I ] [ -w ]
 
     Example:
     readMeasDataVB15 raw.dat -w
@@ -80,7 +80,8 @@ def readMeasDataVB15(filename,
     filename        Filename of file containing raw measurements.
                     
     -rfft (resetFFTscale)
-                    Resets FFTscale and DataCorrection for each coil to 1.
+                    Resets FFTscale and DataCorrection for each coil
+                    to 1.
 
     -r1 (readOneCoil)
                     Read measurement data from from individual coil.
@@ -98,25 +99,26 @@ def readMeasDataVB15(filename,
                     _
 
     -ros (removeOS)
-                    Flag to remove oversampling (OS) in the x direction.
-                    removeOS=True is more efficient as it processes each readout
-                    line independently, reducing the required memory space to
-                    keep all measured data.
+                    Flag to remove oversampling (OS) in the x
+                    direction. removeOS=True is more efficient as it
+                    processes each readout line independently,
+                    reducing the required memory space to keep all
+                    measured data.
 
     -rosa (removeOSafter)
-                    Flag to remove oversampling (OS) in the x direction.
-                    This works in image space, cutting FOV. Not likely a good
-                    idea for radial.
+                    Flag to remove oversampling (OS) in the x
+                    direction. This works in image space, cutting FOV.
+                    Not likely a good idea for radial.
 
     -I (transformToImageSpace)
-                    Produce image space representation. Note that there is no
-                    correction for partial Fourier or parallel imaging k-space
-                    undersampling.  The given version of code only uses numpy's
-                    FFT operation.
+                    Produce image space representation. Note that
+                    there is no correction for partial Fourier or
+                    parallel imaging k-space undersampling.  The given
+                    version of code only uses numpy's FFT operation.
 
     -w (writeToFile)
-                    Save k-space or image space volume. Currently the output
-                    filename is auto generated.
+                    Save k-space or image space volume. Currently the
+                    output filename is auto generated.
     
     -h (help)
                     Displays this documentation.
@@ -205,10 +207,9 @@ def readMeasDataVB15(filename,
             val = afun(val) # Evaluate anonymous function if provided
         data[tup[0]] = val # Store the value in the dictionary
 
-
     ## Now use the whole xml document
     root = ET.fromstring(xmlstr)
-
+    
     # Enforce a max value for Nc
     Nct = get_yaps_by_name(root,'iMaxNoOfRxChannels',lambda x:int(x))
     if Nct is not None:
@@ -260,8 +261,9 @@ def readMeasDataVB15(filename,
     data['NoOfPhaseCorrPartitions'] = get_yaps_by_name(root,'lNoOfPhaseCorrPartitions',lambda x:int(x),data['NzAll']/2)
     data['ColSlopeLength'] = get_yaps_by_name(root,'lColSlopeLength',lambda x:int(x),data['Nx']/4)
     # I think there's a mistake here in the MATLAB code: ColSlopeLength defined again instead of LinSlopeLength.
-    # I will write it how I think it should be and we'll go from there. The value is not actually used.
-    data['LinSlopeLength'] = get_yaps_by_name(root,'lLinSlopeLength',lambda x:int(x),data['NyAll']/4)
+    # Commented is it how I think it should be and we'll go from there. The value is not actually used.
+    # data['LinSlopeLength'] = get_yaps_by_name(root,'lLinSlopeLength',lambda x:int(x),data['NyAll']/4)
+    data['ColSlopeLength'] = get_yaps_by_name(root,'lLinSlopeLength',lambda x:int(x),data['NyAll']/4)
     data['ParSlopeLength'] = get_yaps_by_name(root,'lParSlopeLength',lambda x:int(x),data['NzAll']/4)
     
     ## Raw data correction factors, use the MeasYaps portion of the xml document
@@ -593,7 +595,6 @@ def readMeasDataVB15(filename,
     elif len(data['kSpace'].shape) == 5:
         data['kSpace'] = np.transpose(data['kSpace'],[3,4,2,0,1])
 
-    DataName = 'kSpace'
     if transformToImageSpace is True:
         data['imSpace'] = (data['NxOS']*np.fft.fftshift(np.fft.ifft(np.fft.fftshift(data['kSpace'],1),[],1),1)).astype(np.complex64)
         data['imSpace'] = data['Ny']*np.fft.fftshift(np.fft.ifft(np.fft.fftshift(data['imSpace'],2),[],2),2)
@@ -615,12 +616,13 @@ def readMeasDataVB15(filename,
                 data['imSpace'][0:data['NxOS']/4,:,:,:,:] = []
                 data['imSpace'][data['imSpace'].shape[0] - data['NxOS']/4:,:,:,:,:] = []
 
-        DataName = 'imSpace'
-
     if writeToFile is True:
-        pass
-
-    return(data)
+        if transformToImageSpace is True:
+            return(np.savez_compressed(filenameOut,imSpace=data['imSpace'],timeStamp=data['timeStamp']))
+        else:
+            return(np.savez_compressed(filenameOut,kSpace=data['kSpace'],timeStamp=data['timeStamp']))
+    else:
+        return(data)
 
 if __name__ == '__main__':
 

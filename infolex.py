@@ -1,5 +1,6 @@
 import ply.lex as lex
 from cleanraw import cleanraw
+import sys
 
 # List of token names
 tokens = (
@@ -157,9 +158,8 @@ def t_error(t):
 # Build the lexer
 lexer = lex.lex()
 
-info = cleanraw('test-data/test.dat')
-
 # Give the lexer some input
+info = cleanraw(sys.argv[1])
 lexer.input(info)
 
 # Tokenize

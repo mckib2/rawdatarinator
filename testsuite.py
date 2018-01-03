@@ -5,15 +5,40 @@ import scipy.io as spio
 from colorama import init, Fore
 from readMeasDataVB15 import readMeasDataVB15
 from timer import Timer
+import sys
 init()
-timer = Timer()
 
+def showsuccess(key,val):
+    print(Fore.GREEN + 'Passed: ' + Fore.RESET + '%s (%s)' % (key,val))
+
+def showwarning(key,message):
+    print(Fore.YELLOW + 'Warning: ' + Fore.RESET + '%s' % key)
+    print('\t%s' % message)
+
+def showerror(key,val,valshow,matval,matvalcmp):
+    print(Fore.RED + 'Error: ' + Fore.RESET + '%s' % key)
+    print('\tMATLAB: %s %s\n' % (matshow,type(matval)) +
+          '\tMATCON: %s %s\n' % (matshow,type(matvalcmp)) +
+          '\tPYTHON: %s %s'   % (valshow,type(val)))
+
+timer = Timer()
+filename = sys.argv[1]
+
+print('Starting to load MATLAB from %s.mat' % filename)
 timer.tic('load MATLAB data')
-wkspace = spio.loadmat('test-data/test.mat')
+try:
+    wkspace = spio.loadmat('%s.mat' % filename)
+except NotImplementedError:
+    import h5py
+    wkspace = dict()
+    with h5py.File('%s.mat' % filename) as f:
+        for k,v in f.items():
+            wkspace[k] = np.transpose(np.array(v))
 timer.toc()
 
+print('Starting to run Python with %s.dat' % filename)
 timer.tic('run readMeasVB15')
-pydata = readMeasDataVB15('test-data/test.dat')
+pydata = readMeasDataVB15('%s.dat' % filename)
 timer.toc()
 
 passed = 0
@@ -27,8 +52,7 @@ timer.tic('Compare keys')
 for key in keys:
     val = pydata[key]
     if key not in wkspace:
-        print(Fore.YELLOW + 'Warning: ' + Fore.RESET + '%s' % key)
-        print('\tKey does not exist in MATLAB!')
+        showwarning(key,'Key does not exist in MATLAB!')
         warning += 1
         continue
 
@@ -48,24 +72,25 @@ for key in keys:
         test = lambda x,y: x != y
 
     # Find the values that don't match
-    if test(val,matvalcmp):
-        failed += 1
-        valshow = val.shape if type(val) is np.ndarray else val
-        matshow = matvalcmp.shape if type(val) is np.ndarray else matvalcmp
+    try:
+        if test(val,matvalcmp):
+            failed += 1
+            valshow = val.shape if type(val) is np.ndarray else val
+            matshow = matvalcmp.shape if type(val) is np.ndarray else matvalcmp
 
-        if key == 'noiseMeas':
-            print(matvalcmp)
-            print(val)
-        
-        print(Fore.RED + 'Error: ' + Fore.RESET + '%s' % key)
-        print('\tMATLAB: %s %s\n' % (matshow,type(matval)) +
-              '\tMATCON: %s %s\n' % (matshow,type(matvalcmp)) +
-              '\tPYTHON: %s %s'   % (valshow,type(val)))
-    else:
-        passed += 1
-        valprint = 'array' if type(val) is np.ndarray else val
-        print(Fore.GREEN + 'Passed: ' + Fore.RESET + '%s (%s)' % (key,valprint))
-
+            if key == 'noiseMeas':
+                print(matvalcmp)
+                print(val)
+            showerror(key,val,valshow,matval,matvalshow)
+        else:
+            passed += 1
+            valprint = 'array' if type(val) is np.ndarray else val
+            showsuccess(key,valprint)
+            
+    except ValueError:
+        warning += 1
+        showwarning(key,'ValueError on Comparison')
+            
 timer.toc()
 print('----------------------------------------------------------')
 print(Fore.GREEN + 'Passed : %s' % passed)

@@ -6,7 +6,10 @@ def cleanraw(filename):
     with open(filename,'r') as f:
         num = np.fromfile(f,dtype=np.int32,count=1)
         info = f.read(num-4)
-        
+
+    # Unfortunately Windows exists
+    info = info.replace('\r',' ').replace('\0',' ')
+    
     # we want to ignore some junk before the <XProtocol>
     start = info.find('<XProtocol>') - 1
     info = info[start:]
