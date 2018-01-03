@@ -22,7 +22,7 @@ readMeasDataVB15 filename [ -t ] [ -rfft ] [ -r1 ] [ -rp ] [ -rn ]
 ```
 
 ### Example:
-```readMeasDataVB15 raw.dat -w```
+```./readMeasDataVB15 raw.dat -w```
 
 ### Command-line Options:
 ```
