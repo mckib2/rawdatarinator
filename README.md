@@ -8,66 +8,71 @@ Python implementation based on MATLAB version written by Eugene G. Kholmovski, P
 
 ## readMeasDataVB15
 
-    Read raw data from Siemens MRI scanners with IDEA VB15.
+Read raw data from Siemens MRI scanners with IDEA VB15.
 
-    Will return an array of measured k-space data from raw data from
-    Siemens MRI scanners using IDEA VB15 (single value). If the option
-    `-I` is used, then image space data will be returned instead.
+ Will return an array of measured k-space data from raw data from
+ Siemens MRI scanners using IDEA VB15 (single value). If the option
+ `-I` is used, then image space data will be returned instead.
 
-    ### Usage:
-```    readMeasDataVB15 filename [ -t ] [ -rfft ] [ -r1 ] [ -rp ] [ -rn ]
-                              [ -skipts ] [ -nnavek ] [ -ros ]
-                              [ -rosa ] [ -I ] [ -w ]```
+### Usage:
+```
+readMeasDataVB15 filename [ -t ] [ -rfft ] [ -r1 ] [ -rp ] [ -rn ]
+                          [ -skipts ] [ -nnavek ] [ -ros ]
+                          [ -rosa ] [ -I ] [ -w ]
+```
 
-    ### Example:
-```    readMeasDataVB15 raw.dat -w```
+### Example:
+```readMeasDataVB15 raw.dat -w```
 
-    ### Command-line Options:
-```    filename        Filename of file containing raw measurements.
+### Command-line Options:
+```
+filename
+  Filename of file containing raw measurements.
                     
-    -rfft (resetFFTscale)
-                    Resets FFTscale and DataCorrection for each coil
-                    to 1.
+-rfft (resetFFTscale)
+  Resets FFTscale and DataCorrection for each coil
+  to 1.
 
-    -r1 (readOneCoil)
-                    Read measurement data from from individual coil.
+-r1 (readOneCoil)
+  Read measurement data from from individual coil.
 
-    -rp (readPhaseCorInfo)
-                    _
+-rp (readPhaseCorInfo)
+  _
 
-    -rn (readNavigator)
-                    _
+-rn (readNavigator)
+  _
 
-    -skipts (skip readTimeStamp)
-                    _
+-skipts (skip readTimeStamp)
+  _
 
-    -nnavek (nNavEK)
-                    _
+-nnavek (nNavEK)
+  _
 
-    -ros (removeOS)
-                    Flag to remove oversampling (OS) in the x
-                    direction. removeOS=True is more efficient as it
-                    processes each readout line independently,
-                    reducing the required memory space to keep all
-                    measured data.
+-ros (removeOS)
+  Flag to remove oversampling (OS) in the x
+  direction. removeOS=True is more efficient as it
+  processes each readout line independently,
+  reducing the required memory space to keep all
+  measured data.
 
-    -rosa (removeOSafter)
-                    Flag to remove oversampling (OS) in the x
-                    direction. This works in image space, cutting FOV.
-                    Not likely a good idea for radial.
+-rosa (removeOSafter)
+  Flag to remove oversampling (OS) in the x
+  direction. This works in image space, cutting FOV.
+  Not likely a good idea for radial.
 
-    -I (transformToImageSpace)
-                    Produce image space representation. Note that
-                    there is no correction for partial Fourier or
-                    parallel imaging k-space undersampling.  The given
-                    version of code only uses numpy's FFT operation.
+-I (transformToImageSpace)
+  Produce image space representation. Note that
+  there is no correction for partial Fourier or
+  parallel imaging k-space undersampling.  The given
+  version of code only uses numpy's FFT operation.
 
-    -w (writeToFile)
-                    Save k-space or image space volume. Currently the
-                    output filename is auto generated.
+-w (writeToFile)
+  Save k-space or image space volume. Currently the
+  output filename is auto generated.
     
-    -h (help)
-                    Displays this documentation.```
+-h (help)
+  Displays this documentation.
+```
 
 ## Testing
 
