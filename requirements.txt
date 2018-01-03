@@ -1,7 +1,7 @@
 ###### Requirements ######
 numpy
 scipy
-re
+regex
 colorama
 h5py
 matplotlib
