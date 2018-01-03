@@ -1,13 +1,20 @@
-### Load in MATLAB workspace and check to make sure we're getting the right values
+## Load in MATLAB workspace and check to make sure we're getting the right values
 
 import numpy as np
 import scipy.io as spio
 from colorama import init, Fore
 from readMeasDataVB15 import readMeasDataVB15
+from timer import Timer
 init()
+timer = Timer()
 
+timer.tic('load MATLAB data')
 wkspace = spio.loadmat('test-data/test.mat')
+timer.toc()
+
+timer.tic('run readMeasVB15')
 pydata = readMeasDataVB15('test-data/test.dat')
+timer.toc()
 
 passed = 0
 failed = 0
@@ -16,6 +23,7 @@ warning = 0
 # Sort the keys alphabetically so we can make our way around more quickly
 keys = sorted(pydata.keys(),key=str.lower)
 
+timer.tic('Compare keys')
 for key in keys:
     val = pydata[key]
     if key not in wkspace:
@@ -58,7 +66,8 @@ for key in keys:
         valprint = 'array' if type(val) is np.ndarray else val
         print(Fore.GREEN + 'Passed: ' + Fore.RESET + '%s (%s)' % (key,valprint))
 
-print('-----------------------------------------')
+timer.toc()
+print('----------------------------------------------------------')
 print(Fore.GREEN + 'Passed : %s' % passed)
 print(Fore.YELLOW + 'Warning: %s' % warning)
 print(Fore.RED + 'Failed : %s' % failed)
