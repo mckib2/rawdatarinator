@@ -117,18 +117,17 @@ The game plan I used was to extract the quasi-XML portion of the file, obtain th
 `cleanraw.py` sanitizes the raw data by removing illegal characters (such as carriage returns or null characters in the quasi-XML portion of the document) or data not needing to be parsed.
 
 The resultant XML document mirrors the original quasio-XML document and is split into roughly six subtrees/section:
-1 `<XProtocol> ... </XProtocol>`
-2 `<XProtocol name="Dicom"> ... </XProtocol>`
-3 `<XProtocol name="Meas"> ... </XProtocol>`
-4
-```
+1. `<XProtocol> ... </XProtocol>`
+2. `<XProtocol name="Dicom"> ... </XProtocol>`
+3. `<XProtocol name="Meas"> ... </XProtocol>`
+4. ```
  ### MeasYaps ###
  <value>Key</value>
  <value>Value</value>
  ...
 ```
-5 `<XProtocol name="Phoenix"> ... </XProtocol>`
-6 `<XProtocol name="Spice"> ... </XProtocol>`
+5. `<XProtocol name="Phoenix"> ... </XProtocol>`
+6. `<XProtocol name="Spice"> ... </XProtocol>`
 
 `MeasYaps` is a collection of keys and values whereas each `<XProtocol>` has a standard tree structure. Every XML document must have a root and is called `<doc_root>`.
 
