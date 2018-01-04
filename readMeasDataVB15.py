@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 from infoparser import raw2xml
+from decode_opts import decode_simple_opts
 import xml.etree.ElementTree as ET
 import re, os, sys
 import numpy as np
@@ -572,7 +573,7 @@ def readMeasDataVB15(filename,
 
                     if (readTimeStamp is True) and (data['Channel'] == 0) and (navigatorDataON is True):
                         data['EPITrain'] = countNavigator % data['nEPITrain']
-                        timeStamp[data['Echo'],data['EPITrain'],data['Partition'],data['Slice'],data['Acquisition'],data['Phase'],data['Repetition']] = (0.0025*timeS).astype(np.complex64)
+                        data['timeStamp'][data['Echo'],data['EPITrain'],data['Partition'],data['Slice'],data['Acquisition'],data['Phase'],data['Repetition']] = (0.0025*timeS).astype(np.complex64)
 
                     if (readNavigator is True) and (data['Channel'] == 0) and (navigatorDataON is True):
                         data['EPITrain'] = countNavigator % data['nEPITrain']
@@ -626,45 +627,15 @@ def readMeasDataVB15(filename,
 
 if __name__ == '__main__':
 
-    # Options and their defaults
-    options = { '-rfft': False,
-                '-r1': False,
-                '-rp': False,
-                '-rn': False,
-                '-skipts': False,
-                '-nnavek': False,
-                '-ros': False,
-                '-rosa': False,
-                '-I': False,
-                '-w': False }
+    options = { '-rfft':   ['resetFFTscale',False],
+                '-r1':     ['readOneCoil',False],
+                '-rp':     ['readPhaseCorInfo',False],
+                '-rn':     ['readNavigator',False],
+                '-skipts': ['readTimeStamp',True],
+                '-nnavek': ['nNavEK',False],
+                '-ros':    ['removeOS',False],
+                '-rosa':   ['removeOSafter',False],
+                '-I':      ['transformToImageSpace',False],
+                '-w':      ['writeToFile',False] }
 
-    if len(sys.argv) < 2:
-        print('Requires filename argument!')
-        print("Use option '-h' for help")
-        sys.exit(2)
-    elif '-h' in sys.argv:
-        print(readMeasDataVB15.__doc__)
-    else:
-        # The first argument should be the filename
-        if sys.argv[1] in options.keys():
-            print('The first argument should be the filename!')
-            sys.exit(2)
-        else:
-            for opt in sys.argv[2:]:
-                if opt not in options.keys():
-                    print("Skipping invalid option '%s', use '-h' for help" % opt)
-                else:
-                    options[opt] = True
-
-            # Run with all options assigned
-            readMeasDataVB15(sys.argv[1],
-                             resetFFTscale=options['-rfft'],
-                             readOneCoil=options['-r1'],
-                             readPhaseCorInfo=options['-rp'],
-                             readNavigator=options['-rn'],
-                             readTimeStamp=not options['-skipts'],
-                             nNavEK=options['-nnavek'],
-                             removeOS=options['-ros'],
-                             removeOSafter=options['-rosa'],
-                             transformToImageSpace=options['-I'],
-                             writeToFile=options['-w'])
+    decode_simple_opts(options,sys.argv[1:],readMeasDataVB15)
