@@ -120,8 +120,8 @@ The resultant XML document mirrors the original quasio-XML document and is split
 1. `<XProtocol> ... </XProtocol>`
 2. `<XProtocol name="Dicom"> ... </XProtocol>`
 3. `<XProtocol name="Meas"> ... </XProtocol>`
-4. ```
- ### MeasYaps ###
+4. The `MeasYaps` portion, looks like:
+```
  <value>Key</value>
  <value>Value</value>
  ...
