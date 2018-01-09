@@ -1,5 +1,3 @@
-## Load in MATLAB workspace and check to make sure we're getting the right values
-
 import numpy as np
 import scipy.io as spio
 from colorama import init, Fore
@@ -29,6 +27,7 @@ timer.tic('load MATLAB data')
 try:
     wkspace = spio.loadmat('%s.mat' % filename)
 except NotImplementedError:
+    # We use h5py to read in MATLAB v7.3 .mat files
     import h5py
     wkspace = dict()
     with h5py.File('%s.mat' % filename) as f:

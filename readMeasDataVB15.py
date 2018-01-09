@@ -597,11 +597,14 @@ def readMeasDataVB15(filename,
         data['kSpace'] = np.transpose(data['kSpace'],[3,4,2,0,1])
 
     if transformToImageSpace is True:
-        data['imSpace'] = (data['NxOS']*np.fft.fftshift(np.fft.ifft(np.fft.fftshift(data['kSpace'],1),[],1),1)).astype(np.complex64)
-        data['imSpace'] = data['Ny']*np.fft.fftshift(np.fft.ifft(np.fft.fftshift(data['imSpace'],2),[],2),2)
-
         if data['flag3D'] is True:
-            data['imSpace'] = data['Nz']*np.fftshift(np.ifft(np.fftshift(data['imSpace'],3),[],3),3)
+            data['imSpace'] = np.fft.ifftshift(np.fft.ifftn(np.fft.fftshift(data['kSpace'],axes=(0,1,2)),axes=(0,1,2)),axes=(0,1,2))
+            data['imSpace'][2] *= data['Nz']
+        else:
+            data['imSpace'] = np.fft.ifftshift(np.fft.ifft2(np.fft.fftshift(data['kSpace'],axes=(0,1)),axes=(0,1)),axes=(0,1))
+
+        data['imSpace'][0] *= data['NxOS']
+        data['imSpace'][1] *= data['Ny']
 
         if (removeOSafter is True) and (removeOS is False):
             if len(data['imSpace'].shape) == 2:
@@ -619,11 +622,10 @@ def readMeasDataVB15(filename,
 
     if writeToFile is True:
         if transformToImageSpace is True:
-            return(np.savez_compressed(filenameOut,imSpace=data['imSpace'],timeStamp=data['timeStamp']))
+            np.savez_compressed(filenameOut,imSpace=data['imSpace'],timeStamp=data['timeStamp'])
         else:
-            return(np.savez_compressed(filenameOut,kSpace=data['kSpace'],timeStamp=data['timeStamp']))
-    else:
-        return(data)
+            np.savez_compressed(filenameOut,kSpace=data['kSpace'],timeStamp=data['timeStamp'])
+    return(data)
 
 if __name__ == '__main__':
 
