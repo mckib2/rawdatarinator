@@ -16,11 +16,16 @@ def quickview(filename,
 
     '''      
     data = np.load(filename)
-    
+    if 'kSpace' in data:
+        key = 'kSpace'
+    else:
+        key = 'imSpace'
+        noIFFT = not noIFFT
+        
     # Average over all the averages, use first coil
     coil = 0
-    num_avgs = data['kSpace'].shape[2]
-    avg = (np.squeeze(np.sum(data['kSpace'],axis=2))/num_avgs)[:,:,coil]
+    num_avgs = data[key].shape[2]
+    avg = (np.squeeze(np.sum(data[key],axis=2))/num_avgs)[:,:,coil]
 
     if noIFFT is False:
         imData = np.fft.ifftshift(np.fft.ifft2(avg))
@@ -29,7 +34,7 @@ def quickview(filename,
     else:
         mag = np.log(np.absolute(avg))
         phase = np.angle(avg)
-        f,(ax1, ax2) = plt.subplots(1,2,sharey=True)
+        f,(ax1,ax2) = plt.subplots(1,2,sharey=True)
         ax1.imshow(mag,cmap='gray')
         ax2.imshow(phase,cmap='gray')
         ax1.set_title('log(Magnitude)')
