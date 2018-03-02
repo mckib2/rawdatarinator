@@ -6,11 +6,11 @@ The name of the project pays homage to the naming convention of the main antagon
 
 ## Installation
 
-`requirements.txt` contains package dependencies.  You can install it using pip like this:
+This package is known to work with Python 2.7.14, it does not work with Python 3.5 in its current state.  `requirements.txt` contains package dependencies.  You can install it using pip like this:
 
 ```
-git clone https://github.com/mckib2/raw-datar-inator.git
-cd raw-datar-inator
+git clone https://github.com/mckib2/rawdatarinator.git
+cd rawdatarinator
 pip install -r requirements.txt
 ```
 
@@ -29,8 +29,39 @@ readMeasDataVB15 filename [ -t ] [ -rfft ] [ -r1 ] [ -rp ] [ -rn ]
                           [ -rosa ] [ -I ] [ -w ]
 ```
 
-### Example:
-```./readMeasDataVB15 raw.dat -w```
+#### Example - Executable:
+```./readMeasDataVB15.py raw.dat -w```
+
+#### Example - Specify Python
+```python readMeasData15.py raw.dat -w```
+
+#### Example - Import
+```
+from readMeasDataVB15 import readMeasDataVB15
+
+class DataLoader:
+    def __init__(self):
+        data = readMeasDataVB15('rawdatarinator/test-data/michael.dat')
+
+if __name__ == "__main__":
+    DataLoader()
+```
+
+### Function Arguments
+```
+def readMeasDataVB15(filename,
+                     resetFFTscale=False,
+                     readOneCoil=False,
+                     readPhaseCorInfo=False,
+                     readNavigator=False,
+                     readTimeStamp=True,
+                     nNavEK=False,
+                     removeOS=False,
+                     removeOSafter=False,
+                     transformToImageSpace=False,
+                     writeToFile=False)
+```
+See __Command-line Options__ for more details.
 
 ### Command-line Options:
 ```
@@ -110,7 +141,7 @@ python quickview.py processed_data.npz -nifft
 
 ## Lexer and Parser
 
-Siemens raw MRI data comes packaged all in a `.dat` file. The structure does not follow Siemens' PLM XML format, but is quasi-XML followed by a dump of the binary data.
+Siemens raw MRI data comes packaged all in a `.dat` file. The structure does not follow Siemens' PLM XML format, but is quasi-XML followed by a dump of the binary data.  It is described in the IDEA Documentation.
 
 The game plan I used was to extract the quasi-XML portion of the file, obtain the structure of the document by parsing it, and then reconstructing an equivalent XML document that is easy to traverse using standard libraries.  Python Lex-Yacc (PLY) is used to create a lexer (`infolex.py`) identifying each unique token and a parser (`infoparser.py`) that builds an XML string as grammar productions are matched. The actual grammar is unknown to me, so the tokens and grammar may not be comprehensive. This functionality is captured in the `raw2xml` function in `infoparser.py`.
 
