@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-from infoparser import raw2xml
+from infoparser import InfoParser
 from decode_opts import decode_simple_opts
 import xml.etree.ElementTree as ET
 import re, os, sys
@@ -135,7 +135,8 @@ def readMeasDataVB15(filename,
     globalHeader = 32
     localHeader = 128
 
-    xmlstr = raw2xml(filename)
+    infoParser = InfoParser()
+    xmlstr = infoParser.raw2xml(filename)
 
     # Start in MeasYaps. MeasYaps starts with <value mod="MeasYaps"> and ends at
     # the next XProtocol mod='Phoenix'
