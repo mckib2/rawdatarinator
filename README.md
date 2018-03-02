@@ -41,7 +41,7 @@ from readMeasDataVB15 import readMeasDataVB15
 
 class DataLoader:
     def __init__(self):
-        data = readMeasDataVB15('rawdatarinator/test-data/michael.dat')
+        data = readMeasDataVB15('raw.dat')
 
 if __name__ == "__main__":
     DataLoader()
