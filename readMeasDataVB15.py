@@ -415,7 +415,7 @@ def readMeasDataVB15(filename,
 
     for r in range(data['Ndr']):
         data['xCoil'] = r
-        with open(filename,'r') as f:
+        with open(filename,'rb') as f:
             readFlag = True
             skipField = 0
             countNavigator = 0
