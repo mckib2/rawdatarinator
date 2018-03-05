@@ -12,7 +12,7 @@ def decode_simple_opts(options,args,fun):
         return(0)
     
     # The first argument should be the filename
-    if args in options.keys():
+    if args in list(options.keys()):
         print('The first argument should be the filename!')
         sys.exit(2)
         return(-1)
