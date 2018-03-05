@@ -6,7 +6,7 @@ The name of the project pays homage to the naming convention of the main antagon
 
 ## Installation
 
-This package is known to work with Python 2.7.14, it does not work with Python 3.5 in its current state.  `requirements.txt` contains package dependencies.  You can install it using pip like this:
+This package is known to work with Python 2.7.14 and Python 3.6.3 using Ubuntu 17.10.  `requirements.txt` contains package dependencies.  You can install it using pip like this:
 
 ```
 git clone https://github.com/mckib2/rawdatarinator.git
