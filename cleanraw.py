@@ -38,4 +38,4 @@ def cleanraw(filename):
     end = info.rfind(b'}') + 1
     info = info[1:end]
 
-    return(info)
+    return(info.decode('ascii'))
