@@ -1,7 +1,7 @@
 import ply.yacc as yacc
-from cleanraw import cleanraw
+from rawdatarinator.cleanraw import cleanraw
 import xml.etree.ElementTree as ET
-from infolex import InfoLex
+from rawdatarinator.infolex import InfoLex
 
 class InfoParser(object):
 

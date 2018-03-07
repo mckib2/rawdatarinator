@@ -1,5 +1,5 @@
 import ply.lex as lex
-from cleanraw import cleanraw
+from rawdatarinator.cleanraw import cleanraw
 import sys
 
 class InfoLex(object):

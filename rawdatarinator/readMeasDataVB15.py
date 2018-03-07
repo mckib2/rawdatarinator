@@ -1,6 +1,6 @@
 #!/usr/bin/env python
-from infoparser import InfoParser
-from decode_opts import decode_simple_opts
+from rawdatarinator.infoparser import InfoParser
+from rawdatarinator.decode_opts import decode_simple_opts
 import xml.etree.ElementTree as ET
 import re, os, sys
 import numpy as np
