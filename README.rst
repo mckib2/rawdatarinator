@@ -55,11 +55,11 @@ Example - Import
 ^^^^^^^^^^^^^^^^
 Import into python script::
 
-    from readMeasDataVB15 import readMeasDataVB15
+    from rawdatarinator.readMeasDataVB15 import readMeasDataVB15 as rmd
     
     class DataLoader:
         def __init__(self):
-            data = readMeasDataVB15('raw.dat')
+            data = rmd('raw.dat')
     
     if __name__ == "__main__":
         DataLoader()
