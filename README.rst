@@ -10,11 +10,15 @@ The name of the project pays homage to the naming convention of the main antagon
 Installation
 ************
 
-This package is known to work with Python 2.7.14 and Python 3.6.3 using Ubuntu 17.10 and Windows 10.  `requirements.txt` contains package dependencies.  You can install it using pip like this::
+This package is known to work with Python 2.7.14 and Python 3.6.3 using Ubuntu 17.10 and Windows 10.  `requirements.txt` contains package dependencies.  You can clone the repo and get everything up and running like this::
 
     git clone https://github.com/mckib2/rawdatarinator.git
     cd rawdatarinator
     pip install -r requirements.txt
+
+or, slightly more easily, you can use `pip`::
+
+    pip install rawdatarinator
 
 ****************
 readMeasDataVB15
@@ -22,9 +26,9 @@ readMeasDataVB15
 
 Read raw data from Siemens MRI scanners with IDEA VB15.
 
- Will return an array of measured k-space data from raw data from
- Siemens MRI scanners using IDEA VB15 (single value). If the option
- `-I` is used, then image space data will be returned instead.
+Will return an array of measured k-space data from raw data from
+Siemens MRI scanners using IDEA VB15 (single value). If the option
+`-I` is used, then image space data will be returned instead.
 
 Usage:
 ------
