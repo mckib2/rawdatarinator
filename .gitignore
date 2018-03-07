@@ -4,4 +4,11 @@ test-data/
 *.pyc
 *.out
 *.xml
-parsetab.py
+rawdatarinator/parsetab.py
+build/
+dist/
+*.egg-info/
+*.egg
+__pycache__/
+*.so
+

@@ -1,0 +1,3 @@
+v0.1.0, 2018-03-06 -- Initial release.
+v0.1.1, 2018-03-06 -- GPL added to setup.py License field.
+v0.1.2, 2018-03-06 -- Name changed to lowercase, added rawdatarinator module.
