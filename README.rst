@@ -36,7 +36,7 @@ Call with arguments::
 
     readMeasDataVB15 filename [ -t ] [ -rfft ] [ -r1 ] [ -rp ] [ -rn ]
                               [ -skipts ] [ -nnavek ] [ -ros ]
-                              [ -rosa ] [ -I ] [ -w ]
+                              [ -rosa ] [ -I ] [ -w ] [ -npz ]
 
 
 Example - Executable
