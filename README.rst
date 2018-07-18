@@ -80,7 +80,8 @@ Function definition::
                          removeOS=False,
                          removeOSafter=False,
                          transformToImageSpace=False,
-                         writeToFile=False)
+                         writeToFile=False,
+                         npz=False)
 
 See **Command-line Options** for more details.
 
@@ -131,7 +132,12 @@ Terminal options::
     -w (writeToFile)
       Save k-space or image space volume. Currently the
       output filename is auto generated.
-        
+    
+    -npz (npz)
+      Save k-space or image space volume using the .npz
+      file extension.  Default is to use hdf5 file
+      standard.
+
     -h (help)
       Displays this documentation.
 
@@ -145,7 +151,7 @@ Testing
 Quick View
 **********
 
-Display processed MRI data from `.npz` file.  No arguments displays the IFFT of the k-space data.
+Display processed MRI data from `.hdf5` or `.npz` files.  No arguments displays the IFFT of the k-space data.
 
 Command-line Options
 --------------------
@@ -160,11 +166,11 @@ Examples
 
 To view image domain data::
 
-    python quickview.py processed_data.npz
+    python quickview.py processed_data.hdf5
 
 To view log magnitude and phase plots of k-space data::
     
-    python quickview.py processed_data.npz -nifft
+    python quickview.py processed_data.hdf5 -nifft
 
 ****************
 Lexer and Parser
