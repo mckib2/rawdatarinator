@@ -2,6 +2,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from decode_opts import decode_simple_opts
 import sys
+import h5py
 
 def quickview(filename,
               noIFFT=False):
@@ -14,14 +15,19 @@ def quickview(filename,
     -nifft (no IFFT)
                  Display k-space data, log magnitude and phase plots.
 
-    '''      
-    data = np.load(filename)
+    '''
+
+    if filename.endswith('.npz'):
+        data = np.load(filename)
+    else:
+        data = h5py.File(filename,'r')
+
     if 'kSpace' in data:
         key = 'kSpace'
     else:
         key = 'imSpace'
         noIFFT = not noIFFT
-        
+
     # Average over all the averages, use first coil
     coil = 0
     num_avgs = data[key].shape[2]

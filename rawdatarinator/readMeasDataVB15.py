@@ -4,10 +4,11 @@ from rawdatarinator.decode_opts import decode_simple_opts
 import xml.etree.ElementTree as ET
 import re, os, sys
 import numpy as np
+import h5py
 
 def get_val_by_text(root,search):
     """From MeasYaps XML root find next sibling of node matching 'search'.
-    
+
     MeasYaps looks like:
     <value>Key</value>
     <value>Value</value>
@@ -19,7 +20,7 @@ def get_val_by_text(root,search):
 
     search          (String) String to match Element.text
     """
-    
+
     found_flag = False
     for el in root.iter():
         if found_flag:
@@ -62,7 +63,8 @@ def readMeasDataVB15(filename,
                      removeOS=False,
                      removeOSafter=False,
                      transformToImageSpace=False,
-                     writeToFile=False):
+                     writeToFile=False,
+                     npz=False):
     """Read raw data from Siemens MRI scanners with IDEA VB15.
 
     Will return an array of measured k-space data from raw data from
@@ -72,14 +74,14 @@ def readMeasDataVB15(filename,
     Usage:
     readMeasDataVB15 filename [ -t ] [ -rfft ] [ -r1 ] [ -rp ] [ -rn ]
                               [ -skipts ] [ -nnavek ] [ -ros ]
-                              [ -rosa ] [ -I ] [ -w ]
+                              [ -rosa ] [ -I ] [ -w ] [-npz]
 
     Example:
     readMeasDataVB15 raw.dat -w
 
     Command-line Options:
     filename        Filename of file containing raw measurements.
-                    
+
     -rfft (resetFFTscale)
                     Resets FFTscale and DataCorrection for each coil
                     to 1.
@@ -120,17 +122,22 @@ def readMeasDataVB15(filename,
     -w (writeToFile)
                     Save k-space or image space volume. Currently the
                     output filename is auto generated.
-    
+
+    -npz (npz)
+                    Save k-space or image space volume using the .npz
+                    file extension.  Default is to use hdf5 file
+                    standard.
+
     -h (help)
                     Displays this documentation.
     """
-    
+
     filename_temp = os.path.splitext(filename)[0]
     if transformToImageSpace is False:
         filenameOut = '%s_Kspace' % filename_temp
     else:
         filenameOut = '%s_imageSpace' % filename_temp
-    
+
     # Useful Parameters
     globalHeader = 32
     localHeader = 128
@@ -143,7 +150,7 @@ def readMeasDataVB15(filename,
     startIdx = xmlstr.find('<value mod="MeasYaps">')
     endIdx = xmlstr.find('<XProtocol mod="Phoenix">')
     my_xmlstr = '<MeasYaps>' + xmlstr[startIdx:endIdx] + '</MeasYaps>' # add root
-    
+
     # Parse into XML
     root = ET.fromstring(my_xmlstr)
 
@@ -153,7 +160,7 @@ def readMeasDataVB15(filename,
                      4 : 0.75,
                      2 : 5./8.,
                      1 : 0.5  }
-    
+
     # vals are tuples: (key,search,default,lambda)
     #     key => key to the dictionary entry
     #     search  => string to search the xml document with
@@ -190,7 +197,7 @@ def readMeasDataVB15(filename,
         ('AccelFactor3D','sPat.lAccelFact3D',None,lambda x:int(x)),
         ('nRefLinesPE','sPat.lRefLinesPE',None,lambda x:0 if data['AccelFactorPE'] is 1 else int(x)),
         ('nRefLines3D','sPat.lRefLines3D',None,lambda x:0 if data['AccelFactor3D'] is 1 else int(x)) ]
-    
+
     # Evaluate all tuples
     data = dict() # dictionary to store all values we want to compre with MATLAB
     for tup in vals:
@@ -198,12 +205,12 @@ def readMeasDataVB15(filename,
             idx = my_xmlstr.find(tup[1])
         else:
             idx = -1
-            
+
         if idx < 0:
             val = tup[2] # Take the default if we can't find it
         else:
             val = get_val_by_text(root,tup[1]).text
-            
+
         afun = tup[3]
         if afun is not None:
             val = afun(val) # Evaluate anonymous function if provided
@@ -211,7 +218,7 @@ def readMeasDataVB15(filename,
 
     ## Now use the whole xml document
     root = ET.fromstring(xmlstr)
-    
+
     # Enforce a max value for Nc
     Nct = get_yaps_by_name(root,'iMaxNoOfRxChannels',lambda x:int(x))
     if Nct is not None:
@@ -223,7 +230,7 @@ def readMeasDataVB15(filename,
     nPhCorrScan = get_yaps_by_name(root,'lNoOfPhaseCorrScans',lambda x:int(x))
     if nPhCorrScan is not None:
         data['nPhCorrScan'] = nPhCorrScan
-    
+
     # Define some more variables
     if data['turboFactor'] > 1:
         data['nPhCorEcho'] = 1
@@ -267,14 +274,14 @@ def readMeasDataVB15(filename,
     # data['LinSlopeLength'] = get_yaps_by_name(root,'lLinSlopeLength',lambda x:int(x),data['NyAll']/4)
     data['ColSlopeLength'] = get_yaps_by_name(root,'lLinSlopeLength',lambda x:int(x),data['NyAll']/4)
     data['ParSlopeLength'] = get_yaps_by_name(root,'lParSlopeLength',lambda x:int(x),data['NzAll']/4)
-    
+
     ## Raw data correction factors, use the MeasYaps portion of the xml document
     root = ET.fromstring(my_xmlstr)
     data['CorrFactor'] = np.ones(data['Nc'])
     for c in range(data['Nc']):
         text = 'axRawDataCorrectionFactor[0][%d].dRe' % c
         data['CorrFactor'][c] = 1 if my_xmlstr.find(text) < 0 else float(get_val_by_text(root,text).text)
-        
+
         text = 'axRawDataCorrectionFactor[0][%d].dIm' % c
         if my_xmlstr.find(text) >= 0:
             data['CorrFactor'][c] = data['CorrFactor'][c] + 1j*float(get_val_by_text(root,text).text)
@@ -291,7 +298,7 @@ def readMeasDataVB15(filename,
     data['Nset'] = 1
     text = 'sAngio.ucPCFlowMode'
     data['PCMRAFlag'] = int(get_val_by_text(root,text).text,16) if my_xmlstr.find(text) > 0 else 0
-        
+
     if data['PCMRAFlag'] is 1:
         text = 'sAngio.sFlowArray.lSize'
         if my_xmlstr.find(text) < 0:
@@ -306,7 +313,7 @@ def readMeasDataVB15(filename,
     data['nTSETrain'] = data['Ny']/data['turboFactor']
     data['Nc0'] = data['Nc']
     data['Nc'] = 1 if readOneCoil is True else data['Nc0']
-        
+
     ## Calculation of the number of valid k-space readouts and k-space data matrix dimensions
     if data['PATMode'] is 1:
         data['nReadout'] = (
@@ -318,7 +325,7 @@ def readMeasDataVB15(filename,
             data['Nz']*          \
             data['Nc']*          \
             data['Ny'])
-        
+
     elif (data['PATMode'] is 2) and (data['PATRefScanMode'] is 2):
         if (data['Ny'] % 2) is 1:
             data['NyPAT'] = (data['Ny'] - 1 + data['nRefLinesPE']*(data['AccelFactorPE'] - 1))/data['AccelFactorPE']
@@ -378,7 +385,7 @@ def readMeasDataVB15(filename,
             data['Nc']*          \
             data['nEPITrain']    \
             *data['nNavEK'])
-        
+
         data['kNavigator'] = np.zeros((
             data['nAverage'],
             data['nPhase'],
@@ -397,7 +404,7 @@ def readMeasDataVB15(filename,
             data['nRepetition']* \
             data['nContrast']*   \
             data['Nz'])
-        
+
         data['timeStamp'] = np.zeros((
             data['nAverage'],
             data['nPhase'],
@@ -436,7 +443,7 @@ def readMeasDataVB15(filename,
                 data['evalMask1'] = np.fromfile(f,dtype=np.uint32,count=1)[0]
                 data['evalMask2'] = np.fromfile(f,dtype=np.uint32,count=1)[0]
                 flag = [(32 - m.start()) for m in re.finditer('1',np.binary_repr(data['evalMask1'],32))]
-                
+
                 # Tuples: (key,dtype,afun)
                 vals = [ ('Nxr',None,None),
                          ('Ncr',None,None),
@@ -463,7 +470,7 @@ def readMeasDataVB15(filename,
                     data[tup[0]] = np.fromfile(f,dtype=t,count=1)[0]
 
                 f.seek(2,os.SEEK_CUR)
-                
+
                 if 1 in flag:
                     break
 
@@ -553,7 +560,7 @@ def readMeasDataVB15(filename,
                     if 11 in flag:
                         temp = data['CorrFactor'][data['Channel']]*temp
                     temp = data['FFTCorrFactor'][data['Channel']]*temp
-                    
+
                     if readOneCoil is False:
                         if removeOS is True:
                             temp1[len(temp1) - data['Nxr']:] = temp[0::2] + 1j*temp[1::2]
@@ -581,7 +588,7 @@ def readMeasDataVB15(filename,
                         kNavigator[:,:,:,data['EPITrain'],data['Partition'],data['Slice'],data['Acquisition'],data['Phase'],data[Repetition]] = kNavigatorTemp.astype(np.complex64)
                         navigatorDataON = False
                         countNavigator += 1
-    
+
                 if 1 in flag:
                     break
 
@@ -623,9 +630,18 @@ def readMeasDataVB15(filename,
 
     if writeToFile is True:
         if transformToImageSpace is True:
-            np.savez_compressed(filenameOut,imSpace=data['imSpace'],timeStamp=data['timeStamp'])
+            if npz:
+                np.savez_compressed(filenameOut,imSpace=data['imSpace'],timeStamp=data['timeStamp'])
+            else:
+                with h5py.File('%s.hdf5' % filenameOut,'w') as f:
+                    dset = f.create_dataset('kSpace',data=data['imSpace'])
         else:
-            np.savez_compressed(filenameOut,kSpace=data['kSpace'],timeStamp=data['timeStamp'])
+            if npz:
+                np.savez_compressed(filenameOut,kSpace=data['kSpace'],timeStamp=data['timeStamp'])
+            else:
+                with h5py.File('%s.hdf5' % filenameOut,'w') as f:
+                    dset = f.create_dataset('kSpace',data=data['kSpace'])
+
     return(data)
 
 if __name__ == '__main__':
@@ -639,6 +655,7 @@ if __name__ == '__main__':
                 '-ros':    ['removeOS',False],
                 '-rosa':   ['removeOSafter',False],
                 '-I':      ['transformToImageSpace',False],
-                '-w':      ['writeToFile',False] }
+                '-w':      ['writeToFile',False],
+                '-npz':    ['npz',False] }
 
     decode_simple_opts(options,sys.argv[1:],readMeasDataVB15)
