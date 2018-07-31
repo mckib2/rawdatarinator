@@ -18,7 +18,7 @@ def quickview(filename,
     if filename.endswith('.npz'):
         data = np.load(filename)
     elif filename.endswith('.dat'):
-        from readMeasDataVB15 import readMeasDataVB15 as rmd
+        from rawdatarinator.readMeasDataVB15 import readMeasDataVB15 as rmd
         data = rmd(filename)
     else:
         data = h5py.File(filename,'r')
