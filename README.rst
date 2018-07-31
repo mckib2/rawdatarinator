@@ -43,24 +43,18 @@ Example - Executable
 ^^^^^^^^^^^^^^^^^^^^^
 From the terminal::
 
-    ./readMeasDataVB15.py raw.dat -w
-
-Example - Specify Python
-^^^^^^^^^^^^^^^^^^^^^^^^
-Specify python from the terminal::
-
-    python readMeasData15.py raw.dat -w
+    python3 -m rawdatarinator.readMeasDataVB15 raw.dat -w
 
 Example - Import
 ^^^^^^^^^^^^^^^^
 Import into python script::
 
     from rawdatarinator.readMeasDataVB15 import readMeasDataVB15 as rmd
-    
+
     class DataLoader:
         def __init__(self):
             data = rmd('raw.dat')
-    
+
     if __name__ == "__main__":
         DataLoader()
 
@@ -88,51 +82,51 @@ See **Command-line Options** for more details.
 Command-line Options:
 ---------------------
 Terminal options::
-    
+
     filename
       Filename of file containing raw measurements.
-                        
+
     -rfft (resetFFTscale)
       Resets FFTscale and DataCorrection for each coil
       to 1.
-    
+
     -r1 (readOneCoil)
       Read measurement data from from individual coil.
-    
+
     -rp (readPhaseCorInfo)
       _
-    
+
     -rn (readNavigator)
       _
-    
+
     -skipts (skip readTimeStamp)
       _
-    
+
     -nnavek (nNavEK)
       _
-    
+
     -ros (removeOS)
       Flag to remove oversampling (OS) in the x
       direction. removeOS=True is more efficient as it
       processes each readout line independently,
       reducing the required memory space to keep all
       measured data.
-    
+
     -rosa (removeOSafter)
       Flag to remove oversampling (OS) in the x
       direction. This works in image space, cutting FOV.
       Not likely a good idea for radial.
-    
+
     -I (transformToImageSpace)
       Produce image space representation. Note that
       there is no correction for partial Fourier or
       parallel imaging k-space undersampling.  The given
       version of code only uses numpy's FFT operation.
-    
+
     -w (writeToFile)
       Save k-space or image space volume. Currently the
       output filename is auto generated.
-    
+
     -npz (npz)
       Save k-space or image space volume using the .npz
       file extension.  Default is to use hdf5 file
@@ -151,13 +145,13 @@ Testing
 Quick View
 **********
 
-Display processed MRI data from `.hdf5` or `.npz` files.  No arguments displays the IFFT of the k-space data.
+Display processed MRI data from `.hdf5`, `.npz`, or `.dat` files.  No arguments displays the IFFT of the k-space data.  The type of file is guessed by the file extension (i.e., if extension is `.dat` then readMeasData15 will be run to get the data).
 
 Command-line Options
 --------------------
 
 Options for QuickView::
-    
+
     -nifft (no IFFT)
       Display k-space data, log magnitude and phase plots.
 
@@ -166,11 +160,15 @@ Examples
 
 To view image domain data::
 
-    python quickview.py processed_data.hdf5
+    python3 -m rawdatarinator.quickview processed_data.hdf5
 
 To view log magnitude and phase plots of k-space data::
-    
-    python quickview.py processed_data.hdf5 -nifft
+
+    python3 -m rawdatarinator.quickview processed_data.hdf5 -nifft
+
+To view image domain data of raw data file::
+
+    python3 -m rawdatarinator.quickview raw.dat
 
 ****************
 Lexer and Parser

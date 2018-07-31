@@ -1,15 +1,13 @@
 import matplotlib.pyplot as plt
 import numpy as np
-from decode_opts import decode_simple_opts
+from rawdatarinator.decode_opts import decode_simple_opts
 import sys
 import h5py
 
 def quickview(filename,
               noIFFT=False):
     '''
-    Display processed MRI data from .npz file.
-
-    No arguments displays the IFFT of the k-space data.
+    Display processed MRI data from `.hdf5`, `.npz`, or `.dat` files.  No arguments displays the IFFT of the k-space data.  The type of file is guessed by the file extension (i.e., if extension is `.dat` then readMeasData15 will be run to get the data).
 
     Command-line Options:
     -nifft (no IFFT)
@@ -19,6 +17,9 @@ def quickview(filename,
 
     if filename.endswith('.npz'):
         data = np.load(filename)
+    elif filename.endswith('.dat'):
+        from readMeasDataVB15 import readMeasDataVB15 as rmd
+        data = rmd(filename)
     else:
         data = h5py.File(filename,'r')
 
