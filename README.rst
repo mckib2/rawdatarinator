@@ -34,26 +34,31 @@ Usage:
 ------
 Call with arguments::
 
-    readMeasDataVB15 filename [ -t ] [ -rfft ] [ -r1 ] [ -rp ] [ -rn ]
-                              [ -skipts ] [ -nnavek ] [ -ros ]
-                              [ -rosa ] [ -I ] [ -w ] [ -npz ]
+    python3 -m rawdatarinator.readMeasDataVB15 filename [ -t ] [ -rfft ]
+                                                        [ -r1 ] [ -rp ] [ -rn ]
+                                                        [ -skipts ] [ -nnavek ]
+                                                        [ -ros ] [ -rosa ]
+                                                        [ -I ] [ -w ] [ -npz ]
 
+You can also use an alias for fewer key strokes::
+
+    python3 -m rawdatarinator.raw filename [ same args as above ]
 
 Example - Executable
 ^^^^^^^^^^^^^^^^^^^^^
 From the terminal::
 
-    python3 -m rawdatarinator.readMeasDataVB15 raw.dat -w
+    python3 -m rawdatarinator.raw raw.dat -w
 
 Example - Import
 ^^^^^^^^^^^^^^^^
 Import into python script::
 
-    from rawdatarinator.readMeasDataVB15 import readMeasDataVB15 as rmd
+    from rawdatarinator.raw import raw
 
     class DataLoader:
         def __init__(self):
-            data = rmd('raw.dat')
+            data = raw('raw.dat')
 
     if __name__ == "__main__":
         DataLoader()

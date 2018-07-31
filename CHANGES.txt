@@ -6,3 +6,4 @@ v0.1.4, 2018-06-28 -- Clean raw doesn't break when data is actually clean.
 v0.1.5, 2018-07-18 -- hdf5 file extension now supported for export/quickview.
 v0.1.6, 2018-07-30 -- Docs for console use updated, raw support for quickview.
 v0.1.7, 2018-07-30 -- Namespace added to fix bug in module import in quickview.
+v0.1.8, 2018-07-30 -- Added raw as an alias for readMeasDataVB15.

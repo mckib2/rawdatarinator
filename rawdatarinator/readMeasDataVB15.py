@@ -76,8 +76,12 @@ def readMeasDataVB15(filename,
                               [ -skipts ] [ -nnavek ] [ -ros ]
                               [ -rosa ] [ -I ] [ -w ] [-npz]
 
-    Example:
-    readMeasDataVB15 raw.dat -w
+    Examples:
+    python3 -m rawdatarinator.readMeasDataVB15 raw.dat -w
+
+    or using the shortned alias...
+    
+    python3 -m rawdatarinator.raw raw.dat -w
 
     Command-line Options:
     filename        Filename of file containing raw measurements.
@@ -644,7 +648,8 @@ def readMeasDataVB15(filename,
 
     return(data)
 
-if __name__ == '__main__':
+def main(args):
+    '''Function run when called from command line.'''
 
     options = { '-rfft':   ['resetFFTscale',False],
                 '-r1':     ['readOneCoil',False],
@@ -658,4 +663,7 @@ if __name__ == '__main__':
                 '-w':      ['writeToFile',False],
                 '-npz':    ['npz',False] }
 
-    decode_simple_opts(options,sys.argv[1:],readMeasDataVB15)
+    decode_simple_opts(options,args,readMeasDataVB15)
+
+if __name__ == '__main__':
+    main(sys.argv[1:])

@@ -3,7 +3,7 @@ from setuptools import find_packages
 
 setup(
     name='rawdatarinator',
-    version='0.1.7',
+    version='0.1.8',
     author='Nicholas McKibben',
     author_email='mri@byu.edu',
     packages=find_packages(exclude=['test-data']),
