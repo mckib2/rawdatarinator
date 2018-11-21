@@ -20,6 +20,9 @@ def quickview(filename,
     elif filename.endswith('.dat'):
         from rawdatarinator.readMeasDataVB15 import readMeasDataVB15 as rmd
         data = rmd(filename)
+    elif filename.endswith('.mat'):
+        import scipy.io
+        data = scipy.io.loadmat('file.mat')
     else:
         data = h5py.File(filename,'r')
 
