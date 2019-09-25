@@ -23,7 +23,7 @@ need a C compiler installed.
 
 Use pip to install:
 
-.. code-block: bash
+.. code-block:: bash
 
     pip install rawdatarinator
 
@@ -31,7 +31,7 @@ Usage
 =====
 You get a few functions:
 
-.. code-block: python
+.. code-block:: python
 
     # BART's twixread function can be invoked right from a Python
     # script:
