@@ -1,24 +1,67 @@
-from distutils.core import setup
-from setuptools import find_packages
+'''Setup.py
+'''
+
+from setuptools import setup, Extension, find_packages
+from setuptools.command.build_ext import build_ext as _build_ext
+
+class build_ext(_build_ext):
+    '''Subclass build_ext to bootstrap numpy.'''
+    def finalize_options(self):
+        _build_ext.finalize_options(self)
+
+        # Prevent numpy from thinking it's still in its setup process
+        import numpy as np
+        self.include_dirs.append(np.get_include())
+
+extensions = [
+    Extension(
+        'rawdatarinator.twixread',
+        [
+            "bart/src/misc/version.c",
+            "bart/src/num/vecops.c",
+            "bart/src/num/simplex.c",
+            "bart/src/num/optimize.c",
+            "bart/src/num/multind.c",
+            "bart/src/misc/ya_getopt.c",
+            "bart/src/misc/opts.c",
+            "bart/src/misc/misc.c",
+            "bart/src/misc/io.c",
+            "bart/src/misc/mmio.c",
+            "bart/src/misc/debug.c",
+            "bart/src/twixread.c",
+            "src/twixread_pyx.pyx"
+        ],
+        include_dirs=['src/', 'bart/src/'],
+        extra_compile_args=['-O3']#, '-ffast-math']
+    ),
+    Extension(
+        'rawdatarinator.read',
+        ['src/readcfl.pyx'],
+        include_dirs=[]),
+    Extension(
+        'rawdatarinator.write',
+        ['src/writecfl.pyx'],
+        include_dirs=[]),
+]
 
 setup(
     name='rawdatarinator',
-    version='0.1.9',
+    version='1.0.0',
     author='Nicholas McKibben',
-    author_email='mri@byu.edu',
-    packages=find_packages(exclude=['test-data']),
+    author_email='nicholas.bgp@gmail.com',
+    packages=find_packages(),
     scripts=[],
     url='https://github.com/mckib2/rawdatarinator',
     license='GPL',
-    description='Read raw data from Siemens MRI scanners with IDEA VB15.',
+    description='Read Siemens raw data.',
     long_description=open('README.rst').read(),
     install_requires=[
         "numpy>=1.14.1",
-        "scipy>=1.0.0",
-        "regex==2017.12.12",
-        "h5py>=2.7.1",
-        "matplotlib>=2.1.1",
-        "ply==3.10"
     ],
-    python_requires='>=2.7',
+    cmdclass={'build_ext': build_ext},
+    setup_requires=['numpy'],
+    python_requires='>=3.5',
+
+    # And now for Cython generated files...
+    ext_modules=extensions
 )

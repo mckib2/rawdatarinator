@@ -1,14 +1,15 @@
-\#*
-test-data/
-*~
-*.pyc
-*.out
-*.xml
-rawdatarinator/parsetab.py
-build/
-dist/
-*.egg-info/
-*.egg
+# Python things
 __pycache__/
+*.py[cod]
+
+# C extensions
 *.so
 
+# Any Siemens test data
+*.dat
+
+# Build files
+rawinator.egg-info/
+dist/
+build/
+.eggs/
