@@ -1,0 +1,44 @@
+
+
+Running a command in a debugger 
+-------------------------------
+
+This involves several (easy) steps:
+
+1. Recompile BART with debugging information. Create
+a Makefile.local in the BART directory with the
+following line added:
+
+DEBUG=1
+
+
+Then recompile with:
+
+make allclean
+make bart
+
+
+2. Install the GNU debugger (gdb)
+
+
+3. Run the failing BART command:
+
+gdb --args bart <command> [<options> ...] <arg1> ...
+
+
+4. Then type 'run' to start the process.
+
+If it crashes, you are back in the debugger. You can also
+type CTRL-C to interrupt it at any time.
+
+In the debugger:
+
+You can type 'bt' to get a backtrace which is helpful to
+investigate a segmentation fault or similar.
+
+You can also call functions. For example, this can be used to save
+a multi-dimensional array from the debugger like this:
+
+(gdb) call dump_cfl("dbg_img", 16, dims, image)
+
+
