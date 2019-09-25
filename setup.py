@@ -17,20 +17,21 @@ extensions = [
     Extension(
         'rawdatarinator.twixread',
         [
-            "src/num/vecops.c",
-            "src/num/simplex.c",
-            "src/num/optimize.c",
-            "src/num/multind.c",
-            "src/misc/ya_getopt.c",
-            "src/misc/opts.c",
-            "src/misc/misc.c",
-            "src/misc/io.c",
-            "src/misc/mmio.c",
-            "src/misc/debug.c",
-            "src/twixread.c",
+            "bart/src/misc/version.c",
+            "bart/src/num/vecops.c",
+            "bart/src/num/simplex.c",
+            "bart/src/num/optimize.c",
+            "bart/src/num/multind.c",
+            "bart/src/misc/ya_getopt.c",
+            "bart/src/misc/opts.c",
+            "bart/src/misc/misc.c",
+            "bart/src/misc/io.c",
+            "bart/src/misc/mmio.c",
+            "bart/src/misc/debug.c",
+            "bart/src/twixread.c",
             "src/twixread_pyx.pyx"
         ],
-        include_dirs=['src/'],
+        include_dirs=['src/', 'bart/src/'],
         extra_compile_args=['-O3']#, '-ffast-math']
     ),
     Extension(
