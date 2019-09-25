@@ -46,7 +46,7 @@ extensions = [
 
 setup(
     name='rawdatarinator',
-    version='1.0.0',
+    version='1.0.1',
     author='Nicholas McKibben',
     author_email='nicholas.bgp@gmail.com',
     packages=find_packages(),
