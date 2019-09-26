@@ -1,6 +1,7 @@
 '''Setup.py
 '''
 
+from os import getenv
 from setuptools import setup, Extension, find_packages
 from setuptools.command.build_ext import build_ext as _build_ext
 
@@ -12,6 +13,13 @@ class build_ext(_build_ext):
         # Prevent numpy from thinking it's still in its setup process
         import numpy as np
         self.include_dirs.append(np.get_include())
+
+# See make_release.sh, __DO_CYTHON_BUILD is set to 1 when we want
+# to convert *.pyx into *.c files and 0 when we want to compile *.c
+pyx_or_c = 'c'
+if getenv('__DO_CYTHON_BUILD') == '1':
+    pyx_or_c = 'pyx'
+    print('DOING CYTHON')
 
 extensions = [
     Extension(
@@ -29,21 +37,18 @@ extensions = [
             "bart/src/misc/mmio.c",
             "bart/src/misc/debug.c",
             "bart/src/twixread.c",
-            # "src/twixread_pyx.pyx"
-            "src/twixread_pyx.c"
+            "src/twixread_pyx.%s" % pyx_or_c
         ],
         include_dirs=['src/', 'bart/src/'],
         extra_compile_args=['-O3']#, '-ffast-math']
     ),
     Extension(
         'rawdatarinator.read',
-        # ['src/readcfl.pyx'],
-        ['src/readcfl.c'],
+        ['src/readcfl.%s' % pyx_or_c],
         include_dirs=[]),
     Extension(
         'rawdatarinator.write',
-        # ['src/writecfl.pyx'],
-        ['src/writecfl.c'],
+        ['src/writecfl.%s' % pyx_or_c],
         include_dirs=[]),
 ]
 
