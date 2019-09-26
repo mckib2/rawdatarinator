@@ -4,4 +4,4 @@
 pip install --upgrade Cython
 
 # Make sure .pyx files have been processed
-python setup.py build_ext --inplace
+python setup.py build_ext --inplace -f
