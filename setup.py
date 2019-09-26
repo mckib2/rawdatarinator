@@ -29,24 +29,27 @@ extensions = [
             "bart/src/misc/mmio.c",
             "bart/src/misc/debug.c",
             "bart/src/twixread.c",
-            "src/twixread_pyx.pyx"
+            # "src/twixread_pyx.pyx"
+            "src/twixread_pyx.c"
         ],
         include_dirs=['src/', 'bart/src/'],
         extra_compile_args=['-O3']#, '-ffast-math']
     ),
     Extension(
         'rawdatarinator.read',
-        ['src/readcfl.pyx'],
+        # ['src/readcfl.pyx'],
+        ['src/readcfl.c'],
         include_dirs=[]),
     Extension(
         'rawdatarinator.write',
-        ['src/writecfl.pyx'],
+        # ['src/writecfl.pyx'],
+        ['src/writecfl.c'],
         include_dirs=[]),
 ]
 
 setup(
     name='rawdatarinator',
-    version='1.0.1',
+    version='1.1.0',
     author='Nicholas McKibben',
     author_email='nicholas.bgp@gmail.com',
     packages=find_packages(),
@@ -56,7 +59,7 @@ setup(
     description='Read Siemens raw data.',
     long_description=open('README.rst').read(),
     install_requires=[
-        "numpy>=1.14.1",
+        "numpy>=1.17.2",
     ],
     cmdclass={'build_ext': build_ext},
     setup_requires=['numpy'],
