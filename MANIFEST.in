@@ -14,3 +14,8 @@ include bart/src/misc/mmio.h
 include bart/src/misc/misc.h
 include bart/src/misc/io.h
 include bart/src/misc/debug.h
+include bart/src/misc/nested.h
+include bart/src/misc/mri.h
+include bart/src/misc/cppwrap.h
+include bart/src/misc/types.h
+include bart/src/misc/cppmap.h
