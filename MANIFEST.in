@@ -1,7 +1,8 @@
 include src/twixread.h
-include twixread_pyx.c
+include src/twixread_pyx.c
 include src/writecfl.c
 include src/readcfl.c
+include src/version.inc
 include bart/src/num/vecops.h
 include bart/src/num/simplex.h
 include bart/src/num/optimize.h
