@@ -1,1 +1,15 @@
 include src/twixread.h
+include twixread_pyx.c
+include src/writecfl.c
+include src/readcfl.c
+include bart/src/num/vecops.h
+include bart/src/num/simplex.h
+include bart/src/num/optimize.h
+include bart/src/num/multind.h
+include bart/src/misc/ya_getopt.h
+include bart/src/misc/version.h
+include bart/src/misc/opts.h
+include bart/src/misc/mmio.h
+include bart/src/misc/misc.h
+include bart/src/misc/io.h
+include bart/src/misc/debug.h
