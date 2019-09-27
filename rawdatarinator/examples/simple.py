@@ -9,7 +9,7 @@ if __name__ == '__main__':
 
     # Read a .dat raw data file into memory
     val = twixread(
-        'data/meas_MID288_se_tr2000_te10_ti50_FID47023.dat')
+        'data/meas_MID288_se_tr2000_te10_ti50_FID47023.dat', A=True)
     print(val.shape)
 
     # Read and write data:
