@@ -42,7 +42,7 @@ You get a few functions:
     # as BART normally does.  However, if you're using these Python
     # bindings, you might want to just grab the data straight away.
     # You can do this by not providing any output file:
-    data = twixread('path/to/data.dat')
+    data = twixread('path/to/data.dat', A=True)
 
     # You can read existing BART files like this:
     from rawdatarinator import read
@@ -53,10 +53,6 @@ You get a few functions:
     # BART's writecfl functionality can be found:
     from rawdatarinator import write
     write('path/to/out', data)
-
-Note that currently only the `-A` option is supported, as that is the
-only one I ever user.  If you need the full `twixread` functionality,
-please open up an issue.
 
 References
 ==========
