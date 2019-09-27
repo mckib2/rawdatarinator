@@ -1,1 +1,1 @@
-VERSION(-dirty)
+VERSION(v0.5.00)
