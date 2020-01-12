@@ -2673,26 +2673,36 @@ void md_rss(unsigned int D, const long dims[D], unsigned int flags, float* dst, 
 
 
 /**
- * Sum of squares along selected dimensions
+ * Sum of squares along selected dimensions (without strides)
+ *
+ * @param dims -- full dimensions of src image
+ * @param flags -- bitmask for applying the root of sum of squares, i.e. the dimensions that will not stay
+ */
+void md_zss2(unsigned int D, const long dims[D], unsigned int flags, const long str2[D], complex float* dst, const long str1[D], const complex float* src)
+{
+	long dims2[D];
+	md_select_dims(D, ~flags, dims2, dims);
+
+	md_clear2(D, dims2, str2, dst, CFL_SIZE);
+	md_zfmacc2(D, dims, str2, dst, str1, src, str1, src);
+}
+
+
+/**
+ * Sum of squares along selected dimensions (with strides)
  *
  * @param dims -- full dimensions of src image
  * @param flags -- bitmask for applying the root of sum of squares, i.e. the dimensions that will not stay
  */
 void md_zss(unsigned int D, const long dims[D], unsigned int flags, complex float* dst, const complex float* src)
 {
-	long str1[D];
-	long str2[D];
 	long dims2[D];
 
 	md_select_dims(D, ~flags, dims2, dims);
 
-	md_calc_strides(D, str1, dims, CFL_SIZE);
-	md_calc_strides(D, str2, dims2, CFL_SIZE);
-
-	md_clear(D, dims2, dst, CFL_SIZE);
-	md_zfmacc2(D, dims, str2, dst, str1, src, str1, src);
+	md_zss2(D, dims, flags, MD_STRIDES(D, dims2, CFL_SIZE), dst,
+				MD_STRIDES(D, dims, CFL_SIZE), src);
 }
-
 
 
 /**
@@ -2726,13 +2736,12 @@ void md_zrss(unsigned int D, const long dims[D], unsigned int flags, complex flo
 
 
 /**
- * Compute variance or standard deviation along selected dimensions (with strides)
+ * Compute variance along selected dimensions (with strides)
  *
  * @param dims -- full dimensions of src image
- * @param flags -- bitmask for calculating var/std, i.e. the dimensions that will not stay
- * @param variance -- true if computing variance, false if computing standard deviation
+ * @param flags -- bitmask for calculating variance, i.e. the dimensions that will not stay
  */
-static void md_zvarstd2(unsigned int D, const long dims[D], unsigned int flags, const long ostr[D], complex float* optr, const long istr[D], const complex float* iptr, bool variance)
+void md_zvar2(unsigned int D, const long dims[D], unsigned int flags, const long ostr[D], complex float* optr, const long istr[D], const complex float* iptr)
 {
 	long odims[D];
 	long fdims[D];
@@ -2740,17 +2749,21 @@ static void md_zvarstd2(unsigned int D, const long dims[D], unsigned int flags, 
 	md_select_dims(D, ~flags, odims, dims);
 	md_select_dims(D, flags, fdims, dims);
 
-	complex float* tmp = md_alloc_sameplace(D, dims, CFL_SIZE, iptr);
+	long tstrs[D];
+	md_calc_strides(D, tstrs, dims, CFL_SIZE);
+
+	complex float* tmp = md_alloc_sameplace(D, dims, CFL_SIZE, optr);
 
 	md_zavg2(D, dims, flags, ostr, optr, istr, iptr);
-	md_zsub2(D, dims, istr, tmp, istr, iptr, ostr, optr);
+	md_zsub2(D, dims, tstrs, tmp, istr, iptr, ostr, optr);
 
-	double scale = variance ? md_calc_size(D, fdims) - 1. : sqrtf(md_calc_size(D, fdims) - 1.);
-	(variance ? md_zss : md_zrss)(D, dims, flags, optr, tmp);
+	double scale = md_calc_size(D, fdims) - 1.;
 
-	md_zsmul2(D, odims, ostr, optr, ostr, optr, 1. / scale);
+	md_zss2(D, dims, flags, ostr, optr, tstrs, tmp);
 
 	md_free(tmp);
+
+	md_zsmul2(D, odims, ostr, optr, ostr, optr, 1. / scale);
 }
 
 
@@ -2772,15 +2785,31 @@ void md_zvar(unsigned int D, const long dims[D], unsigned int flags, complex flo
 }
 
 
+
 /**
- * Compute variance along selected dimensions (with strides)
+ * Compute standard deviation along selected dimensions (with strides)
  *
  * @param dims -- full dimensions of src image
- * @param flags -- bitmask for calculating variance, i.e. the dimensions that will not stay
+ * @param flags -- bitmask for calculating standard deviation, i.e. the dimensions that will not stay
  */
-void md_zvar2(unsigned int D, const long dims[D], unsigned int flags, const long ostr[D], complex float* optr, const long istr[D], const complex float* iptr)
+void md_zstd2(unsigned int D, const long dims[D], unsigned int flags, const long ostr[D], complex float* optr, const long istr[D], const complex float* iptr)
 {
-	md_zvarstd2(D, dims, flags, ostr, optr, istr, iptr, true);
+	md_zvar2(D, dims, flags, ostr, optr, istr, iptr);
+
+	long odims[D];
+	md_select_dims(D, ~flags, odims, dims);
+
+#if 1
+	long dimsR[D + 1];
+	real_from_complex_dims(D, dimsR, odims);
+
+	long strsR[D + 1];
+	real_from_complex_strides(D, strsR, ostr);
+
+	md_sqrt2(D + 1, dimsR, strsR, (float*)optr, strsR, (const float*)optr);
+#else
+	md_zsqrt2(D, odims, ostr, optr, ostr, optr);
+#endif
 }
 
 
@@ -2796,23 +2825,72 @@ void md_zstd(unsigned int D, const long dims[D], unsigned int flags, complex flo
 	long odims[D];
 	md_select_dims(D, ~flags, odims, dims);
 
-	md_zvarstd2(D, dims, flags,
+	md_zstd2(D, dims, flags,
 			MD_STRIDES(D, odims, CFL_SIZE), optr,
-			MD_STRIDES(D, dims, CFL_SIZE), iptr, false);
+			MD_STRIDES(D, dims, CFL_SIZE), iptr);
+}
+
+
+
+/**
+ * Compute covariance along selected dimensions (with strides)
+ *
+ * @param dims -- full dimensions of src image
+ * @param flags -- bitmask for calculating variance, i.e. the dimensions that will not stay
+ */
+void md_zcovar2(unsigned int D, const long dims[D], unsigned int flags,
+		const long ostr[D], complex float* optr,
+		const long istr1[D], const complex float* iptr1,
+		const long istr2[D], const complex float* iptr2)
+{
+	long odims[D];
+	long fdims[D];
+
+	md_select_dims(D, ~flags, odims, dims);
+	md_select_dims(D, flags, fdims, dims);
+
+	long tstrs[D];
+	md_calc_strides(D, tstrs, dims, CFL_SIZE);
+
+	complex float* tmp1 = md_alloc_sameplace(D, dims, CFL_SIZE, optr);
+
+	md_zavg2(D, dims, flags, ostr, optr, istr1, iptr1);
+	md_zsub2(D, dims, tstrs, tmp1, istr1, iptr1, ostr, optr);
+
+	complex float* tmp2 = md_alloc_sameplace(D, dims, CFL_SIZE, optr);
+
+	md_zavg2(D, dims, flags, ostr, optr, istr2, iptr2);
+	md_zsub2(D, dims, tstrs, tmp2, istr2, iptr2, ostr, optr);
+
+	double scale = md_calc_size(D, fdims) - 1.;
+
+	md_clear2(D, odims, ostr, optr, CFL_SIZE);
+	md_zfmacc2(D, dims, ostr, optr, tstrs, tmp1, tstrs, tmp2);
+
+	md_free(tmp1);
+	md_free(tmp2);
+
+	md_zsmul2(D, odims, ostr, optr, ostr, optr, 1. / scale);
 }
 
 
 /**
- * Compute standard deviation along selected dimensions (with strides)
+ * Compute covariance along selected dimensions (without strides)
  *
  * @param dims -- full dimensions of src image
- * @param flags -- bitmask for calculating standard deviation, i.e. the dimensions that will not stay
+ * @param flags -- bitmask for calculating variance, i.e. the dimensions that will not stay
  */
-void md_zstd2(unsigned int D, const long dims[D], unsigned int flags, const long ostr[D], complex float* optr, const long istr[D], const complex float* iptr)
+void md_zcovar(unsigned int D, const long dims[D], unsigned int flags,
+		complex float* optr, const complex float* iptr1, const complex float* iptr2)
 {
-	md_zvarstd2(D, dims, flags, ostr, optr, istr, iptr, false);
-}
+	long odims[D];
+	md_select_dims(D, ~flags, odims, dims);
 
+	md_zcovar2(D, dims, flags,
+			MD_STRIDES(D, odims, CFL_SIZE), optr,
+			MD_STRIDES(D, dims, CFL_SIZE), iptr1,
+			MD_STRIDES(D, dims, CFL_SIZE), iptr2);
+}
 
 
 /**
