@@ -5,14 +5,38 @@ from os import getenv
 from setuptools import setup, Extension, find_packages
 from setuptools.command.build_ext import build_ext as _build_ext
 
+copts = {
+    'unix': ['-O3', '-fopenmp'],
+    'mingw32': ['-O3'],
+}
+lopts = {
+    'unix': ['-fopenmp'],
+    'mingw32': []
+}
+
 class build_ext(_build_ext):
-    '''Subclass build_ext to bootstrap numpy.'''
+    '''Subclass build_ext to bootstrap numpy and deal with compile.'''
+
     def finalize_options(self):
         _build_ext.finalize_options(self)
 
         # Prevent numpy from thinking it's still in its setup process
         import numpy as np
         self.include_dirs.append(np.get_include())
+
+    def build_extensions(self):
+        '''We want different opts and potentially preprocess.'''
+        c = self.compiler.compiler_type
+        if c in copts:
+            for e in self.extensions:
+                e.extra_compile_args = copts[c]
+        if c in lopts:
+            for e in self.extensions:
+                e.extra_link_args = lopts[c]
+
+
+        _build_ext.build_extensions(self)
+
 
 # See make_release.sh, __DO_CYTHON_BUILD is set to 1 when we want
 # to convert *.pyx into *.c files and 0 when we want to compile *.c
@@ -40,7 +64,7 @@ extensions = [
             "src/twixread_pyx.%s" % pyx_or_c
         ],
         include_dirs=['src/', 'bart/src/'],
-        extra_compile_args=['-O3']#, '-ffast-math']
+        # extra_compile_args=['-O3'],
     ),
     Extension(
         'rawdatarinator.read',
