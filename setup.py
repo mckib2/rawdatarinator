@@ -47,10 +47,12 @@ class build_ext(_build_ext):
         c = self.compiler.compiler_type
         if c in copts:
             for e in self.extensions:
-                e.extra_compile_args = copts[c]
+                if e.name == 'rawdatarinator.twixread':
+                    e.extra_compile_args = copts[c]
         if c in lopts:
             for e in self.extensions:
-                e.extra_link_args = lopts[c]
+                if e.name == 'rawdatarinator.twixread':
+                    e.extra_link_args = lopts[c]
 
         # We might need to do some preprocessing before we build...
         if c in ['mingw32']:
