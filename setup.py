@@ -15,6 +15,7 @@ lopts = {
     'unix': ['-fopenmp'],
     'mingw32': [],
 }
+include_dirs = ['src/', 'bart/src/']
 
 # Here are all the files we pull from BART
 bart_files = [
@@ -45,6 +46,7 @@ class build_ext(_build_ext):
     def build_extensions(self):
         '''We want different opts and potentially preprocess.'''
         c = self.compiler.compiler_type
+        print(c)
         if c in copts:
             for e in self.extensions:
                 if e.name == 'rawdatarinator.twixread':
@@ -73,8 +75,7 @@ extensions = [
     Extension(
         'rawdatarinator.twixread',
         bart_files + ["src/twixread_pyx.%s" % pyx_or_c],
-        include_dirs=['src/', 'bart/src/'],
-        # extra_compile_args=['-O3'],
+        include_dirs=include_dirs,
     ),
     Extension(
         'rawdatarinator.read',
