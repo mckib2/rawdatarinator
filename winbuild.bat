@@ -1,0 +1,1 @@
+python setup.py build_ext --inplace -f --compiler=mingw32 -DMS_WIN64
