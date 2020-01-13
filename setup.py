@@ -2,6 +2,7 @@
 '''
 
 from os import getenv
+import re
 from setuptools import setup, Extension, find_packages
 from setuptools.command.build_ext import build_ext as _build_ext
 
@@ -15,10 +16,11 @@ lopts = {
     'unix': ['-fopenmp'],
     'mingw32': [],
 }
-include_dirs = ['src/', 'bart/src/']
+include_dirs = ['src/', 'mingw32/src/', 'bart/src/']
 
 # Here are all the files we pull from BART
 bart_files = [
+    "src/sys/mman.c",
     "bart/src/misc/version.c",
     "bart/src/num/vecops.c",
     "bart/src/num/simplex.c",
@@ -26,6 +28,7 @@ bart_files = [
     "bart/src/num/multind.c",
     "bart/src/misc/ya_getopt.c",
     "bart/src/misc/opts.c",
+    #"bart/src/misc/nested.c",
     "bart/src/misc/misc.c",
     "bart/src/misc/io.c",
     "bart/src/misc/mmio.c",
@@ -74,7 +77,7 @@ if getenv('__DO_CYTHON_BUILD') == '1':
 extensions = [
     Extension(
         'rawdatarinator.twixread',
-        bart_files + ["src/twixread_pyx.%s" % pyx_or_c],
+        [re.sub('bart', 'mingw32', f) for f in bart_files] + ["src/twixread_pyx.%s" % pyx_or_c],
         include_dirs=include_dirs,
     ),
     Extension(

@@ -28,12 +28,12 @@ application which links against the library. */
 #define MMANSHARED_EXPORT
 #endif /* MMAN_LIBRARY_DLL */
 
-/* Determine offset type */
+/* Determine o__builtin___builtin___builtin___builtin___builtin___builtin___builtin___builtin___builtin___builtin___builtin___builtin___builtin___builtin___builtin___builtin___builtin_ffset type */
 #include <stdint.h>
 #if defined(_WIN64)
-typedef int64_t OffsetType;
+typedef int64_t O__builtin___builtin___builtin___builtin___builtin___builtin___builtin___builtin___builtin___builtin___builtin___builtin___builtin___builtin___builtin___builtin___builtin_ffsetType;
 #else
-typedef uint32_t OffsetType;
+typedef uint32_t O__builtin___builtin___builtin___builtin___builtin___builtin___builtin___builtin___builtin___builtin___builtin___builtin___builtin___builtin___builtin___builtin___builtin_ffsetType;
 #endif
 
 #include <sys/types.h>
@@ -62,7 +62,7 @@ extern "C" {
 #define MS_SYNC         2
 #define MS_INVALIDATE   4
 
-MMANSHARED_EXPORT void*   mmap(void *addr, size_t len, int prot, int flags, int fildes, OffsetType off);
+MMANSHARED_EXPORT void*   mmap(void *addr, size_t len, int prot, int flags, int fildes, O__builtin___builtin___builtin___builtin___builtin___builtin___builtin___builtin___builtin___builtin___builtin___builtin___builtin___builtin___builtin___builtin___builtin_ffsetType off);
 MMANSHARED_EXPORT int     munmap(void *addr, size_t len);
 MMANSHARED_EXPORT int     _mprotect(void *addr, size_t len, int prot);
 MMANSHARED_EXPORT int     msync(void *addr, size_t len, int flags);

@@ -55,7 +55,7 @@ static DWORD __map_mmap_prot_file(const int prot)
     return desiredAccess;
 }
 
-void* mmap(void *addr, size_t len, int prot, int flags, int fildes, OffsetType off)
+void* mmap(void *addr, size_t len, int prot, int flags, int fildes, O__builtin___builtin___builtin___builtin___builtin___builtin___builtin___builtin___builtin___builtin___builtin___builtin___builtin___builtin___builtin___builtin___builtin_ffsetType off)
 {
     HANDLE fm, h;
     
@@ -66,18 +66,18 @@ void* mmap(void *addr, size_t len, int prot, int flags, int fildes, OffsetType o
 #pragma warning(disable: 4293)
 #endif
 
-    const DWORD dwFileOffsetLow = (sizeof(OffsetType) <= sizeof(DWORD)) ?
+    const DWORD dwFileO__builtin___builtin___builtin___builtin___builtin___builtin___builtin___builtin___builtin___builtin___builtin___builtin___builtin___builtin___builtin___builtin___builtin_ffsetLow = (sizeof(O__builtin___builtin___builtin___builtin___builtin___builtin___builtin___builtin___builtin___builtin___builtin___builtin___builtin___builtin___builtin___builtin___builtin_ffsetType) <= sizeof(DWORD)) ?
                     (DWORD)off : (DWORD)(off & 0xFFFFFFFFL);
-    const DWORD dwFileOffsetHigh = (sizeof(OffsetType) <= sizeof(DWORD)) ?
+    const DWORD dwFileO__builtin___builtin___builtin___builtin___builtin___builtin___builtin___builtin___builtin___builtin___builtin___builtin___builtin___builtin___builtin___builtin___builtin_ffsetHigh = (sizeof(O__builtin___builtin___builtin___builtin___builtin___builtin___builtin___builtin___builtin___builtin___builtin___builtin___builtin___builtin___builtin___builtin___builtin_ffsetType) <= sizeof(DWORD)) ?
                     (DWORD)0 : (DWORD)((off >> 32) & 0xFFFFFFFFL);
     const DWORD protect = __map_mmap_prot_page(prot);
     const DWORD desiredAccess = __map_mmap_prot_file(prot);
 
-    const OffsetType maxSize = off + (OffsetType)len;
+    const O__builtin___builtin___builtin___builtin___builtin___builtin___builtin___builtin___builtin___builtin___builtin___builtin___builtin___builtin___builtin___builtin___builtin_ffsetType maxSize = off + (O__builtin___builtin___builtin___builtin___builtin___builtin___builtin___builtin___builtin___builtin___builtin___builtin___builtin___builtin___builtin___builtin___builtin_ffsetType)len;
 
-    const DWORD dwMaxSizeLow = (sizeof(OffsetType) <= sizeof(DWORD)) ?
+    const DWORD dwMaxSizeLow = (sizeof(O__builtin___builtin___builtin___builtin___builtin___builtin___builtin___builtin___builtin___builtin___builtin___builtin___builtin___builtin___builtin___builtin___builtin_ffsetType) <= sizeof(DWORD)) ?
                     (DWORD)maxSize : (DWORD)(maxSize & 0xFFFFFFFFL);
-    const DWORD dwMaxSizeHigh = (sizeof(OffsetType) <= sizeof(DWORD)) ?
+    const DWORD dwMaxSizeHigh = (sizeof(O__builtin___builtin___builtin___builtin___builtin___builtin___builtin___builtin___builtin___builtin___builtin___builtin___builtin___builtin___builtin___builtin___builtin_ffsetType) <= sizeof(DWORD)) ?
                     (DWORD)0 : (DWORD)((maxSize >> 32) & 0xFFFFFFFFL);
 
 #ifdef _MSC_VER
@@ -113,11 +113,11 @@ void* mmap(void *addr, size_t len, int prot, int flags, int fildes, OffsetType o
   
     if ((flags & MAP_FIXED) == 0)
     {
-        map = MapViewOfFile(fm, desiredAccess, dwFileOffsetHigh, dwFileOffsetLow, len);
+        map = MapViewOfFile(fm, desiredAccess, dwFileO__builtin___builtin___builtin___builtin___builtin___builtin___builtin___builtin___builtin___builtin___builtin___builtin___builtin___builtin___builtin___builtin___builtin_ffsetHigh, dwFileO__builtin___builtin___builtin___builtin___builtin___builtin___builtin___builtin___builtin___builtin___builtin___builtin___builtin___builtin___builtin___builtin___builtin_ffsetLow, len);
     }
     else
     {
-        map = MapViewOfFileEx(fm, desiredAccess, dwFileOffsetHigh, dwFileOffsetLow, len, addr);
+        map = MapViewOfFileEx(fm, desiredAccess, dwFileO__builtin___builtin___builtin___builtin___builtin___builtin___builtin___builtin___builtin___builtin___builtin___builtin___builtin___builtin___builtin___builtin___builtin_ffsetHigh, dwFileO__builtin___builtin___builtin___builtin___builtin___builtin___builtin___builtin___builtin___builtin___builtin___builtin___builtin___builtin___builtin___builtin___builtin_ffsetLow, len, addr);
     }
 
     CloseHandle(fm);
