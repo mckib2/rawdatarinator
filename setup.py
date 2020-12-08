@@ -5,14 +5,6 @@ import subprocess
 from setuptools import setup, Extension, find_packages
 from setuptools.command.build_ext import build_ext as _build_ext
 
-copts = {
-    'unix': ['-O3', '-fopenmp'],
-    'mingw32': ['-O3'],
-}
-lopts = {
-    'unix': ['-fopenmp'],
-    'mingw32': []
-}
 
 class build_ext(_build_ext):
     '''Subclass build_ext to bootstrap numpy and deal with compile.'''
@@ -26,13 +18,6 @@ class build_ext(_build_ext):
 
     def build_extensions(self):
         '''We want different opts and potentially preprocess.'''
-        c = self.compiler.compiler_type
-        if c in copts:
-            for e in self.extensions:
-                e.extra_compile_args = copts[c]
-        if c in lopts:
-            for e in self.extensions:
-                e.extra_link_args = lopts[c]
         _build_ext.build_extensions(self)
 
 
