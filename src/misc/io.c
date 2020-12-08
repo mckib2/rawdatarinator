@@ -47,6 +47,28 @@ static void xdprintf(int fd, const char* fmt, ...)
 
 
 
+enum file_types_e file_type(const char* name)
+{
+	const char *p = strrchr(name, '.');
+
+	if ((NULL != p) && (p != name)) {
+
+		if (0 == strcmp(p, ".ra"))
+			return FILE_TYPE_RA;
+
+		if (0 == strcmp(p, ".coo"))
+			return FILE_TYPE_COO;
+
+#ifdef USE_MEM_CFL
+		if (0 == strcmp(p, ".mem"))
+			return MEM;
+#endif
+	}
+
+	return FILE_TYPE_CFL;
+}
+
+
 struct iofile_s {
 
 	const char* name;
@@ -103,7 +125,7 @@ void io_unregister(const char* name)
 			xfree(io->name);
 			xfree(io);
 
-			return;
+			continue;
 		}
 
 		iop = &io->prev;
@@ -115,6 +137,53 @@ void io_memory_cleanup(void)
 {
 	while (NULL != iofiles)
 		io_unregister(iofiles->name);
+}
+
+
+
+void io_unlink_if_opened(const char* name)
+{
+	const struct iofile_s* iop = iofiles;
+
+	while (NULL != iop) {
+
+		if (0 == strcmp(name, iop->name)) {
+
+			enum file_types_e type = file_type(name);
+
+			switch (type) {
+				case FILE_TYPE_RA:
+				case FILE_TYPE_COO:
+					if (0 != unlink(name))
+						error("Failed to unlink file %s\n", name);
+					break;
+
+				case FILE_TYPE_CFL:
+				{
+					char name_bdy[1024];
+					if (1024 <= snprintf(name_bdy, 1024, "%s.cfl", name))
+						error("Failed to unlink cfl file %s\n", name);
+
+					if (0 != unlink(name_bdy))
+						error("Failed to unlink file %s\n", name);
+
+					char name_hdr[1024];
+					if (1024 <= snprintf(name_hdr, 1024, "%s.hdr", name))
+						error("Failed to unlink cfl file %s\n", name);
+
+					if (0 != unlink(name_hdr))
+						error("Failed to unlink file %s\n", name);
+				}
+			}
+
+			io_unregister(name);
+
+			break;
+		}
+
+		iop = iop->prev;
+	}
+
 }
 
 

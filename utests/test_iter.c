@@ -1,9 +1,9 @@
-/* Copyright 2019. Martin Uecker.
+/* Copyright 2019-2020. Martin Uecker.
  * All rights reserved. Use of this source code is governed by
  * a BSD-style license which can be found in the LICENSE file.
  *
  * Authors:
- * 2017-2019 Martin Uecker <martin.uecker@med.uni-goettingen.de>
+ * 2017-2020 Martin Uecker <martin.uecker@med.uni-goettingen.de>
  */
 
 #include <complex.h>
@@ -125,6 +125,67 @@ static bool test_iter_irgnm_lsqr0(bool ref)
 }
 
 
+static bool test_iter_irgnm_lsqr1(bool ref, bool regu)
+{
+	enum { N = 3 };
+	long dims[N]  = { 10, 7, 3 };
+	long dims1[N] = { 10, 7, 1 };
+	long dims2[N] = { 10, 7, 2 };
+
+	complex float* dst1 = md_alloc(N, dims, CFL_SIZE);
+	complex float* src1 = md_alloc(N, dims, CFL_SIZE);
+	complex float* src2 = md_alloc(N, dims, CFL_SIZE);
+
+	md_zfill(N, dims, src1, 1.);
+
+	struct nlop_s* zexp = nlop_zexp_create(N, dims);
+
+	nlop_apply(zexp, N, dims, dst1, N, dims, src1);
+
+	md_zfill(N, dims, src2, 0.);
+
+	const struct operator_p_s* lsqr = NULL;
+	struct iter_admm_conf conf = iter_admm_defaults;
+	conf.rho = 1.E-5;
+
+	auto p1 = prox_thresh_create(3, dims1, 0.5, 0u);
+	auto p2 = prox_thresh_create(3, dims2, 0.5, 0u);
+
+	const struct operator_p_s* prox_ops[1] = { operator_p_stack(2, 2, p1, p2) };
+
+	operator_p_free(p1);
+	operator_p_free(p2);
+
+	const struct linop_s* trafos[1] = { linop_identity_create(3, dims) };
+
+	lsqr = lsqr2_create(&lsqr_defaults,
+				iter2_admm, CAST_UP(&conf),
+				NULL, &zexp->derivative[0][0], NULL,
+				regu ? 1 : 0,
+				regu ? prox_ops : NULL,
+				regu ? trafos : NULL,
+				NULL);
+
+	struct iter3_irgnm_conf irgnm_conf = iter3_irgnm_defaults;
+	irgnm_conf.iter = 4;
+
+	iter4_irgnm2(CAST_UP(&irgnm_conf), zexp,
+		2 * md_calc_size(N, dims), (float*)src2, ref ? (const float*)src1 : NULL,
+		2 * md_calc_size(N, dims), (const float*)dst1, lsqr,
+		(struct iter_op_s){ NULL, NULL });
+
+	double err = md_znrmse(N, dims, src1, src2);
+
+	operator_p_free(lsqr);
+	nlop_free(zexp);
+
+	md_free(src1);
+	md_free(dst1);
+	md_free(src2);
+
+	UT_ASSERT(err < 1.E-3);
+}
+
 
 static bool test_iter_irgnm(void)
 {
@@ -150,7 +211,15 @@ static bool test_iter_irgnm_lsqr(void)
 
 UT_REGISTER_TEST(test_iter_irgnm_lsqr);
 
+static bool test_iter_irgnm_lsqr_l1(void)
+{
+	return    test_iter_irgnm_lsqr1(false, true)
+	       && test_iter_irgnm_lsqr1(false, false)
+	       && test_iter_irgnm_lsqr1(true,  true)
+	       && test_iter_irgnm_lsqr1(true,  false);
+}
 
+UT_REGISTER_TEST(test_iter_irgnm_lsqr_l1);
 
 
 static bool test_iter_irgnm_l1(void)
@@ -224,3 +293,45 @@ static bool test_iter_irgnm_l1(void)
 
 UT_REGISTER_TEST(test_iter_irgnm_l1);
 
+
+static bool test_iter_lsqr_warmstart(void)
+{
+	enum { N = 3 };
+	long dims[N] = { 4, 2, 3 };
+
+	complex float* src = md_alloc(N, dims, CFL_SIZE);
+	complex float* dst = md_alloc(N, dims, CFL_SIZE);
+
+	md_zfill(N, dims, src, 1.66);
+	md_zfill(N, dims, dst, 0.66);
+
+	const struct linop_s* id = linop_identity_create(3, dims);
+
+	struct lsqr_conf conf = lsqr_defaults;
+	conf.warmstart = true;
+
+	struct iter_conjgrad_conf cg_conf = iter_conjgrad_defaults;
+	cg_conf.maxiter = 0;
+
+	const struct operator_p_s* lsqr = lsqr2_create(&conf,
+						iter2_conjgrad, CAST_UP(&cg_conf),
+						NULL, id, NULL,
+						0, NULL, NULL, NULL);
+
+	operator_p_apply(lsqr, 0.3, N, dims, dst, N, dims, src);
+
+	md_zfill(N, dims, src, 0.66);
+
+	double err = md_znrmse(N, dims, src, dst);
+
+	linop_free(id);
+
+	md_free(src);
+	md_free(dst);
+
+	operator_p_free(lsqr);
+
+	UT_ASSERT(err < UT_TOL);
+}
+
+UT_REGISTER_TEST(test_iter_lsqr_warmstart);

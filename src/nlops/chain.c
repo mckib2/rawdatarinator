@@ -36,8 +36,14 @@ struct nlop_s* nlop_chain(const struct nlop_s* a, const struct nlop_s* b)
 	const struct linop_s* la = linop_from_nlop(a);
 	const struct linop_s* lb = linop_from_nlop(b);
 
-	if ((NULL != la) && (NULL != lb))
-		return nlop_from_linop(linop_chain(la, lb));
+	if ((NULL != la) && (NULL != lb)) {
+
+		const struct linop_s* tmp = linop_chain(la, lb);
+		linop_free(la);
+		linop_free(lb);
+		return nlop_from_linop_F(tmp);
+	}
+
 
 	PTR_ALLOC(struct nlop_s, n);
 
@@ -45,13 +51,16 @@ struct nlop_s* nlop_chain(const struct nlop_s* a, const struct nlop_s* b)
 	n->derivative = &(*der)[0][0];
 
 	if (NULL == la)
-		la = a->derivative[0];
+		la = linop_clone(a->derivative[0]);
 
 	if (NULL == lb)
-		lb = b->derivative[0];
+		lb = linop_clone(b->derivative[0]);
 
 	n->op = operator_chain(a->op, b->op);
 	n->derivative[0] = linop_chain(la, lb);
+
+	linop_free(la);
+	linop_free(lb);
 
 	return PTR_PASS(n);
 }
@@ -68,9 +77,9 @@ struct nlop_s* nlop_chain_FF(const struct nlop_s* a, const struct nlop_s* b)
 struct nlop_s* nlop_chain2(const struct nlop_s* a, int o, const struct nlop_s* b, int i)
 {
 //	int ai = nlop_get_nr_in_args(a);
-	int ao = nlop_get_nr_out_args(a);
+//	int ao = nlop_get_nr_out_args(a);
 //	int bi = nlop_get_nr_in_args(b);
-//	int bo = nlop_get_nr_out_args(b);
+	int bo = nlop_get_nr_out_args(b);
 #if 0
 	if ((1 == ai) && (1 == ao) && (1 == bi) && (1 == bo)) {
 
@@ -80,7 +89,7 @@ struct nlop_s* nlop_chain2(const struct nlop_s* a, int o, const struct nlop_s* b
 #endif
 
 	struct nlop_s* nl = nlop_combine(b, a);
-	struct nlop_s* li = nlop_link(nl, ao + o, i);
+	struct nlop_s* li = nlop_link(nl, bo + o, i);
 	nlop_free(nl);
 
 	return li;
@@ -123,12 +132,11 @@ struct nlop_s* nlop_combine(const struct nlop_s* a, const struct nlop_s* b)
 				auto dom = nlop_generic_domain(a, i);
 				auto cod = nlop_generic_codomain(b, o - ao);
 
-				//assert(dom->N == cod->N);
 				assert(sizeof(complex float) == dom->size);
 				assert(sizeof(complex float) == cod->size);
 
-				(*der)[i][o] = linop_null_create2(dom->N,
-					cod->dims, cod->strs, dom->dims, dom->strs);
+				(*der)[i][o] = linop_null_create2(cod->N,
+					cod->dims, cod->strs, dom->N, dom->dims, dom->strs);
 
 			} else
 			if ((ai <= i) && (o < ao)) {
@@ -136,12 +144,11 @@ struct nlop_s* nlop_combine(const struct nlop_s* a, const struct nlop_s* b)
 				auto dom = nlop_generic_domain(b, i - ai);
 				auto cod = nlop_generic_codomain(a, o);
 
-				assert(dom->N == cod->N);
 				assert(sizeof(complex float) == dom->size);
 				assert(sizeof(complex float) == cod->size);
 
-				(*der)[i][o] = linop_null_create2(dom->N,
-					cod->dims, cod->strs, dom->dims, dom->strs);
+				(*der)[i][o] = linop_null_create2(cod->N,
+					cod->dims, cod->strs, dom->N, dom->dims, dom->strs);
 			}
 		}
 	}
@@ -188,11 +195,11 @@ struct nlop_s* nlop_link(const struct nlop_s* x, int oo, int ii)
 	PTR_ALLOC(struct nlop_s, n);
 	PTR_ALLOC(const struct linop_s*[II - 1][OO - 1], der);
 
-	assert(operator_ioflags(x->op) == ((1u << OO) - 1));
+	//assert(operator_ioflags(x->op) == ((1u << OO) - 1));
 
 	n->op = operator_link_create(x->op, oo, OO + ii);
 
-	assert(operator_ioflags(n->op) == ((1u << (OO - 1)) - 1));
+	//assert(operator_ioflags(n->op) == ((1u << (OO - 1)) - 1));
 
 	// f(x_1, ..., g(x_n+1, ..., x_n+m), ..., xn)
 
@@ -230,16 +237,16 @@ struct nlop_s* nlop_dup(const struct nlop_s* x, int a, int b)
 
 	assert(a < II);
 	assert(b < II);
-        assert(a < b);
+	assert(a < b);
 
 	PTR_ALLOC(struct nlop_s, n);
 	PTR_ALLOC(const struct linop_s*[II-1][OO], der);
 
-	assert(operator_ioflags(x->op) == ((1u << OO) - 1));
+	//assert(operator_ioflags(x->op) == ((1u << OO) - 1));
 
 	n->op = operator_dup_create(x->op, OO + a, OO + b);
 
-	assert(operator_ioflags(n->op) == ((1u << OO) - 1));
+	//assert(operator_ioflags(n->op) == ((1u << OO) - 1));
 
 	// f(x_1, ..., xa, ... xa, ..., xn)
 
@@ -250,10 +257,10 @@ struct nlop_s* nlop_dup(const struct nlop_s* x, int a, int b)
 
 		for (int o = 0; o < OO; o++) {
 
-                        (*der)[i][o] = nlop_get_derivative(x, o, ip);
-                        
-                        if (i == a)
-                                (*der)[i][o] = linop_plus((*der)[i][o], nlop_get_derivative(x, o, b));
+			(*der)[i][o] = nlop_get_derivative(x, o, ip);
+
+			if (i == a)
+				(*der)[i][o] = linop_plus((*der)[i][o], nlop_get_derivative(x, o, b));
 		}
 	}
 
@@ -287,5 +294,3 @@ struct nlop_s* nlop_permute_inputs(const struct nlop_s* x, int I2, const int per
 
 	return PTR_PASS(n);
 }
-
-

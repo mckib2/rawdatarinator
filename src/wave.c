@@ -154,7 +154,7 @@ static const struct linop_s* linop_samp_create(long wx, long sy, long sz, long n
 
 enum algo_t { CG, IST, FISTA };
 
-int main_wave(int argc, char* argv[])
+int main_wave(int argc, char* argv[argc])
 {
 	double start_time = timestamp();
 
@@ -398,7 +398,9 @@ int main_wave(int argc, char* argv[])
 
 	debug_printf(DP_INFO, "Reconstruction... ");
 	complex float* recon = create_cfl(argv[4], DIMS, recon_dims);
-	struct lsqr_conf lsqr_conf = { 0., gpun >= 0 };
+	struct lsqr_conf lsqr_conf = lsqr_defaults;
+	lsqr_conf.lambda = 0.;
+	lsqr_conf.it_gpu = (gpun >= 0);
 	double recon_start = timestamp();
 	const struct operator_p_s* J = lsqr2_create(&lsqr_conf, italgo, iconf, NULL, A, NULL, 1, &T, NULL, NULL);
 	operator_p_apply(J, 1., DIMS, recon_dims, recon, DIMS, kspc_dims, kspc);

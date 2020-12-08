@@ -1,4 +1,8 @@
 
+#ifndef _OPS_P_H
+#define _OPS_P_H
+
+#include "misc/cppwrap.h"
 
 struct operator_data_s;
 typedef struct operator_data_s operator_data_t;
@@ -37,6 +41,9 @@ extern void operator_p_apply2(const struct operator_p_s* op, float mu, unsigned 
 
 extern void operator_p_apply_unchecked(const struct operator_p_s* op, float mu,  _Complex float* dst, const _Complex float* src);
 
+extern const struct operator_p_s* operator_p_reshape_in(const struct operator_p_s* op, unsigned int N, const long dims[N]);
+extern const struct operator_p_s* operator_p_reshape_out(const struct operator_p_s* op, unsigned int N, const long dims[N]);
+extern const struct operator_p_s* operator_p_flatten_F(const struct operator_p_s* op);
 
 // get functions
 struct iovec_s;
@@ -51,4 +58,16 @@ extern const struct operator_p_s* operator_p_downcast(const struct operator_s* o
 
 extern const struct operator_p_s* operator_p_gpu_wrapper(const struct operator_p_s* op);
 
+// functions freeing its arguments
+extern const struct operator_p_s* operator_p_pre_chain_FF(const struct operator_s* a, const struct operator_p_s* _b);
+extern const struct operator_p_s* operator_p_pst_chain_FF(const struct operator_p_s* _a, const struct operator_s* b);
+extern const struct operator_s* operator_p_bind_F(const struct operator_p_s* op, float alpha);
+extern const struct operator_p_s* operator_p_stack_FF(int A, int B, const struct operator_p_s* _a, const struct operator_p_s* _b);
+extern const struct operator_p_s* operator_p_reshape_in_F(const struct operator_p_s* op, unsigned int N, const long dims[N]);
+extern const struct operator_p_s* operator_p_reshape_out_F(const struct operator_p_s* op, unsigned int N, const long dims[N]);
+
+
+#include "misc/cppwrap.h"
+
+#endif //  _OPS_P_H
 

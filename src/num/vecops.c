@@ -79,6 +79,12 @@ static void clear(long N, float* vec)
 		vec[i] = 0.;
 }
 
+static void sadd(long N, float* vec, float src)
+{
+	for (long i = 0; i < N; i++)
+		vec[i] += src;
+}
+
 static double dot(long N, const float* vec1, const float* vec2)
 {
 	double res = 0.;
@@ -194,6 +200,18 @@ static void add(long N, float* dst, const float* src1, const float* src2)
 		dst[i] = src1[i] + src2[i];
 }
 
+static void sadd_update(long N, float val, float* dst, const float* src)
+{
+	for (long i = 0; i < N; i++)
+		dst[i] = src[i] + val;
+}
+
+static void zsadd(long N, complex float val, complex float* dst, const complex float* src)
+{
+	for (long i = 0; i < N; i++)
+		dst[i] = src[i] + val;
+}
+
 static void sub(long N, float* dst, const float* src1, const float* src2)
 {
 	for (long i = 0; i < N; i++)
@@ -213,12 +231,17 @@ static void vec_div(long N, float* dst, const float* src1, const float* src2)
 		dst[i] = (src2[i] == 0) ? 0.f : src1[i] / src2[i];
 }
 
+static void sdiv(long N, float* dst, float src1, const float* src2)
+{
+	for (long i = 0; i < N; i++)
+		dst[i] = (src2[i] == 0) ? 0.f : src1 / src2[i];
+}
+
 static void fmac(long N, float* dst, const float* src1, const float* src2)
 {
 	for (long i = 0; i < N; i++)
 		dst[i] += src1[i] * src2[i];
 	//dst[i] = fmaf(src1[i], src2[i], dst[i]);
-		
 }
 
 static void fmac2(long N, double* dst, const float* src1, const float* src2)
@@ -242,7 +265,7 @@ static void zmul(long N, complex float* dst, const complex float* src1, const co
 static void zdiv(long N, complex float* dst, const complex float* src1, const complex float* src2)
 {
 	for (long i = 0; i < N; i++)
-		dst[i] = (src2[i] == 0) ? 0.f : src1[i] / src2[i];
+		dst[i] = (src2[i] == 0.) ? 0. : (src1[i] / src2[i]);
 }
 
 static void zpow(long N, complex float* dst, const complex float* src1, const complex float* src2)
@@ -329,6 +352,24 @@ static void zexpj(long N, complex float* dst, const complex float* src)
 		dst[i] = cexpf(1.I * src[i]);
 }
 
+static void zlog(long N, complex float* dst, const complex float* src)
+{
+	for (long i = 0; i < N; i++)
+		dst[i] = (src[i] == (complex float)0.) ? 0. : clogf(src[i]);
+}
+
+static void vec_exp(long N, float* dst, const float* src)
+{
+	for (long i = 0; i < N; i++)
+		dst[i] = expf(src[i]);
+}
+
+static void vec_log(long N, float* dst, const float* src)
+{
+	for (long i = 0; i < N; i++)
+		dst[i] = (src[i] == 0.) ? 0. : logf(src[i]);
+}
+
 static void zarg(long N, complex float* dst, const complex float* src)
 {
 	for (long i = 0; i < N; i++)
@@ -341,6 +382,29 @@ static void zabs(long N, complex float* dst, const complex float* src)
 		dst[i] = cabsf(src[i]);
 }
 
+static void zatanr(long N, complex float* dst, const complex float* src)
+{
+	for (long i = 0; i < N; i++)
+		dst[i] = atan(crealf(src[i])) + 0.I;
+}
+
+static void zsin(long N, complex float* dst, const complex float* src)
+{
+	for (long i = 0; i < N; i++)
+		dst[i] = csinf(src[i]);
+}
+
+static void zcos(long N, complex float* dst, const complex float* src)
+{
+	for (long i = 0; i < N; i++)
+		dst[i] = ccosf(src[i]);
+}
+
+static void zacos(long N, complex float* dst, const complex float* src)
+{
+	for (long i = 0; i < N; i++)
+		dst[i] = acosf(crealf(src[i])) + 0.I;
+}
 
 static void zmax(long N, complex float* dst, const complex float* src1, const complex float* src2)
 {
@@ -369,6 +433,13 @@ static void min(long N, float* dst, const float* src1, const float* src2)
 }
 
 
+static void smin(long N, float val, float* dst, const float* src1)
+{
+	for (long i = 0; i < N; i++)
+		dst[i] = MIN(src1[i], val);
+}
+
+
 static void zsmax(long N, float val, complex float* dst, const complex float* src)
 {
 	for (long i = 0; i < N; i++)
@@ -393,14 +464,14 @@ static void vec_sqrt(long N, float* dst, const float* src)
 static void vec_zle(long N, complex float* dst, const complex float* src1, const complex float* src2)
 {
 	for (long i = 0; i < N; i++)
-		dst[i] = (crealf(src1[i]) <= crealf(src2[i]));
+		dst[i] = (crealf(src1[i]) <= crealf(src2[i])) ? 1. : 0.;
 }
 
 
 static void vec_le(long N, float* dst, const float* src1, const float* src2)
 {
 	for (long i = 0; i < N; i++)
-		dst[i] = (src1[i] <= src2[i]);
+		dst[i] = (src1[i] <= src2[i]) ? 1. : 0.;
 }
 
 /**
@@ -472,10 +543,10 @@ static void softthresh(long N, float lambda, float* d, const float* x)
 static float klargest_complex_partsort( unsigned int N,  unsigned int k, const complex float* ar)
 {
 	assert(k <= N);
-	
+
 	complex float* tmp =  (complex float*)xmalloc(N * sizeof(complex float));
 	copy(2 * N, (float*)tmp, (float*)ar);
-	
+
 	float thr = quickselect_complex(tmp, N, k);
 
 	xfree(tmp);
@@ -486,9 +557,9 @@ static float klargest_complex_partsort( unsigned int N,  unsigned int k, const c
 /**
  * Hard thesholding, y = HT(x, thr).
  * computes the thresholded vector, y = x * (abs(x) >= t(kmax))
- * 
+ *
  * @param N number of elements
- * @param k threshold parameter, index of kth largest element of sorted x 
+ * @param k threshold parameter, index of kth largest element of sorted x
  * @param d pointer to destination, y
  * @param x pointer to input
  */
@@ -496,7 +567,7 @@ static float klargest_complex_partsort( unsigned int N,  unsigned int k, const c
 static void zhardthresh(long N,  unsigned int k, complex float* d, const complex float* x)
 {
 	float thr = klargest_complex_partsort(N, k, x);
-   
+
 	for (long i = 0; i < N; i++) {
 
 		float norm = cabsf(x[i]);
@@ -586,7 +657,35 @@ static void zfftmod(long N, complex float* dst, const complex float* src, unsign
 			dst[i * n + j] = src[i * n + j] * fftmod_phase2(n, j, inv, phase);
 }
 
+static void vec_real(long N, float* dst, const _Complex float* src)
+{
+	for (int i = 0; i < N; i ++)
+		dst[i] = crealf(src[i]);
+}
 
+static  void vec_imag(long N, float* dst, const _Complex float* src)
+{
+	for (int i = 0; i < N; i ++)
+		dst[i] = cimagf(src[i]);
+}
+
+static void vec_zcmpl_real(long N, _Complex float* dst, const float* src)
+{
+	for (int i = 0; i < N; i ++)
+		dst[i] = src[i];
+}
+
+static void vec_zcmpl_imag(long N, _Complex float* dst, const float* src)
+{
+	for (int i = 0; i < N; i ++)
+		dst[i] = src[i] * I;
+}
+
+static void vec_zcmpl(long N, _Complex float* dst, const float* real_src, const float* imag_src)
+{
+	for (int i = 0; i < N; i ++)
+		dst[i] = real_src[i] + imag_src[i] * I;
+}
 
 /*
  * If you add functions here, please also add to gpuops.c/gpukrnls.cu
@@ -606,6 +705,7 @@ const struct vec_ops cpu_ops = {
 	.div = vec_div,
 	.fmac = fmac,
 	.fmac2 = fmac2,
+	.sadd = sadd_update,
 
 	.smul = smul,
 
@@ -627,14 +727,21 @@ const struct vec_ops cpu_ops = {
 
 	.zsmax = zsmax,
 	.zsmul = zsmul,
+	.zsadd = zsadd,
 
 	.zpow = zpow,
 	.zphsr = zphsr,
 	.zconj = zconj,
 	.zexpj = zexpj,
 	.zexp = zexp,
+	.zlog = zlog,
 	.zarg = zarg,
 	.zabs = zabs,
+	.zatanr = zatanr,
+
+	.zsin = zsin,
+	.zcos = zcos,
+	.zacos = zacos,
 
 	.zcmp = zcmp,
 	.zdiv_reg = zdiv_reg,
@@ -652,6 +759,15 @@ const struct vec_ops cpu_ops = {
 	.softthresh_half = softthresh_half,
 	.zhardthresh = zhardthresh,
 	.zhardthresh_mask = zhardthresh_mask,
+
+	.exp = vec_exp,
+	.log = vec_log,
+
+	.real = vec_real,
+	.imag = vec_imag,
+	.zcmpl_real = vec_zcmpl_real,
+	.zcmpl_imag = vec_zcmpl_imag,
+	.zcmpl = vec_zcmpl,
 };
 
 
@@ -675,7 +791,18 @@ struct vec_iter_s {
 	void (*xpay)(long N, float alpha, float* a, const float* x);
 	void (*axpy)(long N, float* a, float alpha, const float* x);
 	void (*axpbz)(long N, float* out, const float a, const float* x, const float b, const float* z);
+	void (*fmac)(long N, float* a, const float* x, const float* y);
+
+	void (*div)(long N, float* a, const float* x, const float* y);
+	void (*sqrt)(long N, float* a, const float* x);
+
+	void (*smax)(long N, float alpha, float* a, const float* x);
+	void (*smin)(long N, float alpha, float* a, const float* x);
+	void (*sadd)(long N, float* x, float y);
+	void (*sdiv)(long N, float* a, float x, const float* y);
+
 	void (*zmul)(long N, complex float* dst, const complex float* src1, const complex float* src2);
+ 	void (*zsmax)(long N, complex float val, complex float* dst, const complex float* src1);
 };
 
 
@@ -696,6 +823,11 @@ const struct vec_iter_s cpu_iter_ops = {
 	.sub = sub,
 	.swap = swap,
 	.zmul = zmul,
+	.fmac = fmac,
+	.sqrt = vec_sqrt,
+	.sdiv = sdiv,
+	.sadd = sadd,
+	.div = vec_div,
+	.smax = smax,
+	.smin = smin,
 };
-
-

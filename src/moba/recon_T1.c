@@ -1,5 +1,5 @@
 /* Copyright 2013. The Regents of the University of California.
- * Copyright 2019. Uecker Lab, University Medical Center Goettingen.
+ * Copyright 2019-2020. Uecker Lab, University Medical Center Goettingen.
  * All rights reserved. Use of this source code is governed by
  * a BSD-style license which can be found in the LICENSE file.
  *
@@ -30,22 +30,10 @@
 
 #include "moba/model_T1.h"
 #include "moba/iter_l1.h"
+#include "moba/moba.h"
 
 #include "recon_T1.h"
 
-
-struct moba_conf moba_defaults = {
-
-	.iter = 8,
-	.alpha = 1.,
-	.alpha_min = 0.,
-	.redu = 2.,
-	.step = 0.9,
-	.lower_bound = 0.,
-	.tolerance = 0.01,
-	.inner_iter = 250,
-	.noncartesian = false,
-};
 
 
 void T1_recon(const struct moba_conf* conf, const long dims[DIMS], complex float* img, complex float* sens, const complex float* pattern, const complex float* mask, const complex float* TI, const complex float* kspace_data, _Bool usegpu)
@@ -53,16 +41,15 @@ void T1_recon(const struct moba_conf* conf, const long dims[DIMS], complex float
 	long imgs_dims[DIMS];
 	long coil_dims[DIMS];
 	long data_dims[DIMS];
-	long img1_dims[DIMS];
 
-	unsigned int fft_flags = FFT_FLAGS|SLICE_FLAG;
+	unsigned int fft_flags = FFT_FLAGS;
+
+	if (conf->sms)
+		fft_flags |= SLICE_FLAG;
 
 	md_select_dims(DIMS, fft_flags|MAPS_FLAG|CSHIFT_FLAG|COEFF_FLAG|TIME2_FLAG, imgs_dims, dims);
 	md_select_dims(DIMS, fft_flags|COIL_FLAG|MAPS_FLAG|TIME2_FLAG, coil_dims, dims);
-	md_select_dims(DIMS, fft_flags|COIL_FLAG|TE_FLAG|TIME2_FLAG, data_dims, dims);
-	md_select_dims(DIMS, fft_flags|TIME2_FLAG, img1_dims, dims);
-
-	imgs_dims[COEFF_DIM] = 3;
+	md_select_dims(DIMS, fft_flags|COIL_FLAG|TE_FLAG|MAPS_FLAG|TIME2_FLAG, data_dims, dims);
 
 	long skip = md_calc_size(DIMS, imgs_dims);
 	long size = skip + md_calc_size(DIMS, coil_dims);
@@ -81,6 +68,7 @@ void T1_recon(const struct moba_conf* conf, const long dims[DIMS], complex float
 	mconf.fft_flags = fft_flags;
 	mconf.a = 880.;
 	mconf.b = 32.;
+	mconf.cnstcoil_flags = TE_FLAG;
 
 	struct T1_s nl = T1_create(dims, mask, TI, pattern, &mconf, usegpu);
 
@@ -90,14 +78,20 @@ void T1_recon(const struct moba_conf* conf, const long dims[DIMS], complex float
 	irgnm_conf.alpha = conf->alpha;
 	irgnm_conf.redu = conf->redu;
 	irgnm_conf.alpha_min = conf->alpha_min;
-	irgnm_conf.cgtol = conf->tolerance;
+	irgnm_conf.cgtol = ((2 == conf->opt_reg) || (conf->auto_norm_off)) ? 1e-3 : conf->tolerance;
 	irgnm_conf.cgiter = conf->inner_iter;
 	irgnm_conf.nlinv_legacy = true;
 
-	struct mdb_irgnm_l1_conf conf2 = { .c2 = &irgnm_conf, .step = conf->step, .lower_bound = conf->lower_bound };
+	struct mdb_irgnm_l1_conf conf2 = { 
+		.c2 = &irgnm_conf, 
+		.opt_reg = conf->opt_reg, 
+		.step = conf->step, 
+		.lower_bound = conf->lower_bound, 
+		.constrained_maps = 1,
+		.auto_norm_off = conf->auto_norm_off };
 
 	long irgnm_conf_dims[DIMS];
-	md_select_dims(DIMS, fft_flags|MAPS_FLAG|CSHIFT_FLAG|COEFF_FLAG|TIME2_FLAG, irgnm_conf_dims, imgs_dims);
+	md_select_dims(DIMS, fft_flags|MAPS_FLAG|COEFF_FLAG|TIME2_FLAG, irgnm_conf_dims, imgs_dims);
 
 	irgnm_conf_dims[COIL_DIM] = coil_dims[COIL_DIM];
 
@@ -121,7 +115,6 @@ void T1_recon(const struct moba_conf* conf, const long dims[DIMS], complex float
 	}
 
 	nlop_free(nl.nlop);
-
 
 	md_free(x);
 }
