@@ -1854,6 +1854,7 @@ static const char __pyx_k_name_2[] = "__name__";
 static const char __pyx_k_retVal[] = "retVal";
 static const char __pyx_k_genexpr[] = "genexpr";
 static const char __pyx_k_outname[] = "outname";
+static const char __pyx_k_readcfl[] = "readcfl";
 static const char __pyx_k_vargs_2[] = "_vargs";
 static const char __pyx_k_filename[] = "filename";
 static const char __pyx_k_tempfile[] = "tempfile";
@@ -1918,6 +1919,7 @@ static PyObject *__pyx_kp_u_r_d;
 static PyObject *__pyx_n_s_range;
 static PyObject *__pyx_n_s_rawdatarinator;
 static PyObject *__pyx_n_s_read;
+static PyObject *__pyx_n_s_readcfl;
 static PyObject *__pyx_n_s_retVal;
 static PyObject *__pyx_n_s_s;
 static PyObject *__pyx_kp_u_s_d;
@@ -3088,7 +3090,7 @@ static PyObject *__pyx_pf_12twixread_pyx_twixread(CYTHON_UNUSED PyObject *__pyx_
  *             for ii in range(cargs):
  *                 vargs[ii] = _vargs[ii]             # <<<<<<<<<<<<<<
  *             retVal = main_twixread(cargs, vargs)
- *             return read.read(f.name)
+ *             return readcfl.read(f.name)
  */
               __pyx_t_29 = __Pyx_PyObject_AsWritableString(PyList_GET_ITEM(__pyx_v__vargs, __pyx_v_ii)); if (unlikely((!__pyx_t_29) && PyErr_Occurred())) __PYX_ERR(0, 122, __pyx_L18_error)
               (__pyx_v_vargs[__pyx_v_ii]) = __pyx_t_29;
@@ -3098,7 +3100,7 @@ static PyObject *__pyx_pf_12twixread_pyx_twixread(CYTHON_UNUSED PyObject *__pyx_
  *             for ii in range(cargs):
  *                 vargs[ii] = _vargs[ii]
  *             retVal = main_twixread(cargs, vargs)             # <<<<<<<<<<<<<<
- *             return read.read(f.name)
+ *             return readcfl.read(f.name)
  * 
  */
             __pyx_v_retVal = main_twixread(__pyx_v_cargs, __pyx_v_vargs);
@@ -3106,12 +3108,12 @@ static PyObject *__pyx_pf_12twixread_pyx_twixread(CYTHON_UNUSED PyObject *__pyx_
             /* "twixread_pyx.pyx":124
  *                 vargs[ii] = _vargs[ii]
  *             retVal = main_twixread(cargs, vargs)
- *             return read.read(f.name)             # <<<<<<<<<<<<<<
+ *             return readcfl.read(f.name)             # <<<<<<<<<<<<<<
  * 
  *     # If we have the outfile, we can just put the data there
  */
             __Pyx_XDECREF(__pyx_r);
-            __Pyx_GetModuleGlobalName(__pyx_t_6, __pyx_n_s_read); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 124, __pyx_L18_error)
+            __Pyx_GetModuleGlobalName(__pyx_t_6, __pyx_n_s_readcfl); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 124, __pyx_L18_error)
             __Pyx_GOTREF(__pyx_t_6);
             __pyx_t_15 = __Pyx_PyObject_GetAttrStr(__pyx_t_6, __pyx_n_s_read); if (unlikely(!__pyx_t_15)) __PYX_ERR(0, 124, __pyx_L18_error)
             __Pyx_GOTREF(__pyx_t_15);
@@ -4533,6 +4535,7 @@ static __Pyx_StringTabEntry __pyx_string_tab[] = {
   {&__pyx_n_s_range, __pyx_k_range, sizeof(__pyx_k_range), 0, 0, 1, 1},
   {&__pyx_n_s_rawdatarinator, __pyx_k_rawdatarinator, sizeof(__pyx_k_rawdatarinator), 0, 0, 1, 1},
   {&__pyx_n_s_read, __pyx_k_read, sizeof(__pyx_k_read), 0, 0, 1, 1},
+  {&__pyx_n_s_readcfl, __pyx_k_readcfl, sizeof(__pyx_k_readcfl), 0, 0, 1, 1},
   {&__pyx_n_s_retVal, __pyx_k_retVal, sizeof(__pyx_k_retVal), 0, 0, 1, 1},
   {&__pyx_n_s_s, __pyx_k_s, sizeof(__pyx_k_s), 0, 0, 1, 1},
   {&__pyx_kp_u_s_d, __pyx_k_s_d, sizeof(__pyx_k_s_d), 0, 1, 0, 0},
@@ -4959,7 +4962,7 @@ if (!__Pyx_RefNanny) {
  * cimport numpy as np
  * import numpy as np             # <<<<<<<<<<<<<<
  * from tempfile import NamedTemporaryFile as NTF
- * from rawdatarinator import read
+ * from rawdatarinator import readcfl
  */
   __pyx_t_1 = __Pyx_Import(__pyx_n_s_numpy, 0, 0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 6, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
@@ -4970,7 +4973,7 @@ if (!__Pyx_RefNanny) {
  * cimport numpy as np
  * import numpy as np
  * from tempfile import NamedTemporaryFile as NTF             # <<<<<<<<<<<<<<
- * from rawdatarinator import read
+ * from rawdatarinator import readcfl
  * 
  */
   __pyx_t_1 = PyList_New(1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 7, __pyx_L1_error)
@@ -4990,21 +4993,21 @@ if (!__Pyx_RefNanny) {
   /* "twixread_pyx.pyx":8
  * import numpy as np
  * from tempfile import NamedTemporaryFile as NTF
- * from rawdatarinator import read             # <<<<<<<<<<<<<<
+ * from rawdatarinator import readcfl             # <<<<<<<<<<<<<<
  * 
  * cdef extern from "twixread.h":
  */
   __pyx_t_2 = PyList_New(1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 8, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __Pyx_INCREF(__pyx_n_s_read);
-  __Pyx_GIVEREF(__pyx_n_s_read);
-  PyList_SET_ITEM(__pyx_t_2, 0, __pyx_n_s_read);
+  __Pyx_INCREF(__pyx_n_s_readcfl);
+  __Pyx_GIVEREF(__pyx_n_s_readcfl);
+  PyList_SET_ITEM(__pyx_t_2, 0, __pyx_n_s_readcfl);
   __pyx_t_1 = __Pyx_Import(__pyx_n_s_rawdatarinator, __pyx_t_2, 0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 8, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  __pyx_t_2 = __Pyx_ImportFrom(__pyx_t_1, __pyx_n_s_read); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 8, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_ImportFrom(__pyx_t_1, __pyx_n_s_readcfl); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 8, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  if (PyDict_SetItem(__pyx_d, __pyx_n_s_read, __pyx_t_2) < 0) __PYX_ERR(0, 8, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_d, __pyx_n_s_readcfl, __pyx_t_2) < 0) __PYX_ERR(0, 8, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 

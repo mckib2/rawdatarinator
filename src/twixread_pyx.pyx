@@ -5,7 +5,7 @@ cimport cython
 cimport numpy as np
 import numpy as np
 from tempfile import NamedTemporaryFile as NTF
-from rawdatarinator import read
+from rawdatarinator import readcfl
 
 cdef extern from "twixread.h":
     int main_twixread(int argc, char* argv[])
@@ -121,7 +121,7 @@ def twixread(
             for ii in range(cargs):
                 vargs[ii] = _vargs[ii]
             retVal = main_twixread(cargs, vargs)
-            return read.read(f.name)
+            return readcfl.read(f.name)
 
     # If we have the outfile, we can just put the data there
     _vargs.append(outname.encode())

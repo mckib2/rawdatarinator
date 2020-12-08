@@ -44,10 +44,12 @@ if find_executable('cython') is not None:
     except subprocess.CalledProcessError:
         print('Cython failed! Going to try to keep going...')
 
-
+MACROS = [
+    ('NPY_NO_DEPRECATED_API', 'NPY_1_7_API_VERSION'),
+]
 extensions = [
     Extension(
-        'rawdatarinator.twixread',
+        'rawdatarinator.twixread_pyx',
         sources=[
             "bart/src/misc/version.c",
             "bart/src/num/vecops.c",
@@ -64,16 +66,19 @@ extensions = [
             "src/twixread_pyx.c",
         ],
         include_dirs=['src/', 'bart/src/'],
+        define_macros=MACROS,
     ),
     Extension(
-        'rawdatarinator.read',
+        'rawdatarinator.readcfl',
         sources=['src/readcfl.c'],
-        include_dirs=[]
+        include_dirs=[],
+        define_macros=MACROS,
     ),
     Extension(
-        'rawdatarinator.write',
+        'rawdatarinator.writecfl',
         sources=['src/writecfl.c'],
-        include_dirs=[]
+        include_dirs=[],
+        define_macros=MACROS,
     ),
 ]
 
