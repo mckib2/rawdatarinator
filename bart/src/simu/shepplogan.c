@@ -89,6 +89,32 @@ const struct ellipsis_s phantom_geo4[1] = {
 	{	0.8,   { .1,   .7   }, { .6,     0  },	   0},
 };
 
+
+const struct ellipsis_bs phantom_tubes[21] = {
+	{{	1.,	{ .125,	.125	},	{ -0.13, -0.19 },	0.,	}, false },
+	{{	1.,	{ .125,	.125	},	{ -0.45, -0.32 },	0.,	}, false },
+	{{	1.,	{ .125,	.125	},	{ -0.55,  0.05 },	0.,	}, false },
+	{{	1.,	{ .125,	.125	},	{ -0.37,  0.37 },	0.,	}, false },
+	{{	1.,	{ .125,	.125	},	{ -0.05,  0.55 },	0.,	}, false },
+	{{	1.,	{ .125,	.125	},	{  0.33,  0.40 },	0.,	}, false },
+	{{	1.,	{ .125,	.125	},	{  0.53,  0.12 },	0.,	}, false },
+	{{	1.,	{ .125,	.125	},	{  0.50, -0.24 },	0.,	}, false },
+	{{	1.,	{ .125,	.125	},	{  0.20, -0.05 },	0.,	}, false },
+	{{	1.,	{ .125,	.125	},	{  -0.11, 0.16 },	0.,	}, false },
+	{{	1.,	{ .75,	.75	},	{  0.00,  0.00 },	0.,	}, true },
+	{{	-1.,	{ .16,	.16	},	{ -0.13, -0.19 },	0.,	}, true },
+	{{	-1.,	{ .16,	.16	},	{ -0.45, -0.32 },	0.,	}, true },
+	{{	-1.,	{ .16,	.16	},	{ -0.55,  0.05 },	0.,	}, true },
+	{{	-1.,	{ .16,	.16	},	{ -0.37,  0.37 },	0.,	}, true },
+	{{	-1.,	{ .16,	.16	},	{ -0.05,  0.55 },	0.,	}, true },
+	{{	-1.,	{ .16,	.16	},	{  0.33,  0.40 },	0.,	}, true },
+	{{	-1.,	{ .16,	.16	},	{  0.53,  0.12 },	0.,	}, true },
+	{{	-1.,	{ .16,	.16	},	{  0.50, -0.24 },	0.,	}, true },
+	{{	-1.,	{ .16,	.16	},	{  0.20, -0.05 },	0.,	}, true },
+	{{	-1.,	{ .16,	.16	},	{  -0.11, 0.16 },	0.,	}, true },
+};
+
+
 /* Magnetic Resonance in Medicine 58:430--436 (2007)
  * Three-Dimensional Analytical Magnetic Resonance
  * Imaging Phantom in the Fourier Domain
@@ -190,7 +216,7 @@ complex double krectangle(const double center[2], const double axis[2], double a
 }
 
 
-complex double phantom(unsigned int N, const struct ellipsis_s arr[N], const double pos[3], bool ksp)
+complex double phantom(unsigned int N, const struct ellipsis_s arr[N], const double pos[2], bool ksp)
 {
 	complex double res = 0.;
 

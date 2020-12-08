@@ -377,14 +377,14 @@ const struct iovec_s* linop_codomain(const struct linop_s* op)
 
 
 
-struct linop_s* linop_null_create2(unsigned int N, const long odims[N], const long ostrs[N], const long idims[N], const long istrs[N])
+struct linop_s* linop_null_create2(unsigned int NO, const long odims[NO], const long ostrs[NO], unsigned int NI, const long idims[NI], const long istrs[NI])
 {
 	PTR_ALLOC(struct linop_s, c);
 
-	const struct operator_s* nudo = operator_null_create2(N, idims, istrs);
-	const struct operator_s* zedo = operator_zero_create2(N, idims, istrs);
-	const struct operator_s* nuco = operator_null_create2(N, odims, ostrs);
-	const struct operator_s* zeco = operator_zero_create2(N, odims, ostrs);
+	const struct operator_s* nudo = operator_null_create2(NI, idims, istrs);
+	const struct operator_s* zedo = operator_zero_create2(NI, idims, istrs);
+	const struct operator_s* nuco = operator_null_create2(NO, odims, ostrs);
+	const struct operator_s* zeco = operator_zero_create2(NO, odims, ostrs);
 
 	c->forward = operator_combi_create(2, MAKE_ARRAY(zeco, nudo));
 	c->adjoint = operator_combi_create(2, MAKE_ARRAY(zedo, nuco));
@@ -401,10 +401,10 @@ struct linop_s* linop_null_create2(unsigned int N, const long odims[N], const lo
 
 
 
-struct linop_s* linop_null_create(unsigned int N, const long odims[N], const long idims[N])
+struct linop_s* linop_null_create(unsigned int NO, const long odims[NO], unsigned int NI, const long idims[NI])
 {
-	return linop_null_create2(N, odims, MD_STRIDES(N, odims, CFL_SIZE),
-					idims, MD_STRIDES(N, idims, CFL_SIZE));
+	return linop_null_create2(NO, odims, MD_STRIDES(NO, odims, CFL_SIZE),
+					NI, idims, MD_STRIDES(NI, idims, CFL_SIZE));
 }
 
 
@@ -416,6 +416,16 @@ struct linop_s* linop_null_create(unsigned int N, const long odims[N], const lon
  */
 struct linop_s* linop_chain(const struct linop_s* a, const struct linop_s* b)
 {
+	if (   operator_zero_or_null_p(a->forward)
+	    || operator_zero_or_null_p(b->forward)) {
+
+		auto dom = linop_domain(a);
+		auto cod = linop_codomain(b);
+
+		return linop_null_create2(cod->N, cod->dims, cod->strs,
+					dom->N, dom->dims, dom->strs);
+	}
+
 	PTR_ALLOC(struct linop_s, c);
 
 	c->forward = operator_chain(a->forward, b->forward);
@@ -496,12 +506,33 @@ struct linop_s* linop_stack(int D, int E, const struct linop_s* a, const struct 
 struct linop_s* linop_loop(unsigned int D, const long dims[D], struct linop_s* op)
 {
 	PTR_ALLOC(struct linop_s, op2);
+
 	op2->forward = operator_loop(D, dims, op->forward);
 	op2->adjoint = operator_loop(D, dims, op->adjoint);
 	op2->normal = (NULL == op->normal) ? NULL : operator_loop(D, dims, op->normal);
 	op2->norm_inv = NULL; // FIXME
-	return op2;
+
+	return PTR_PASS(op2);
 }
+
+
+struct linop_s* linop_copy_wrapper(unsigned int D, const long istrs[D], const long ostrs[D],  struct linop_s* op)
+{
+	PTR_ALLOC(struct linop_s, op2);
+
+	const long* strsx[2] = { ostrs, istrs };
+	const long* strsy[2] = { istrs, ostrs };
+	const long* strsz[2] = { istrs, istrs };
+
+	op2->forward = operator_copy_wrapper(2, strsx, op->forward);
+	op2->adjoint = operator_copy_wrapper(2, strsy, op->adjoint);
+	op2->normal = (NULL == op->normal) ? NULL : operator_copy_wrapper(2, strsz, op->normal);
+	op2->norm_inv = NULL; // FIXME
+
+	return PTR_PASS(op2);
+}
+
+
 
 
 /**
@@ -522,57 +553,6 @@ void linop_free(const struct linop_s* op)
 }
 
 
-
-
-struct plus_data_s {
-
-	INTERFACE(linop_data_t);
-
-	const struct linop_s* a;
-	const struct linop_s* b;
-};
-
-static DEF_TYPEID(plus_data_s);
-
-static void plus_apply(const linop_data_t* _data, complex float* dst, const complex float* src)
-{
-	auto data = CAST_DOWN(plus_data_s, _data);
-	auto iov = linop_codomain(data->a);
-
-	complex float* tmp = md_alloc_sameplace(iov->N, iov->dims, iov->size, dst);
-
-	linop_forward_unchecked(data->a, dst, src);
-	linop_forward_unchecked(data->b, tmp, src);
-
-	md_zadd(iov->N, iov->dims, dst, dst, tmp);
-	md_free(tmp);
-}
-
-static void plus_adjoint(const linop_data_t* _data, complex float* dst, const complex float* src)
-{
-	auto data = CAST_DOWN(plus_data_s, _data);
-	auto iov = linop_domain(data->a);
-
-	complex float* tmp = md_alloc_sameplace(iov->N, iov->dims, iov->size, dst);
-
-	linop_adjoint_unchecked(data->a, dst, src);
-	linop_adjoint_unchecked(data->b, tmp, src);
-
-	md_zadd(iov->N, iov->dims, dst, dst, tmp);
-	md_free(tmp);
-}
-
-
-static void plus_free(const linop_data_t* _data)
-{
-	auto data = CAST_DOWN(plus_data_s, _data);
-
-	linop_free(data->a);
-	linop_free(data->b);
-
-	xfree(data);
-}
-
 struct linop_s* linop_plus(const struct linop_s* a, const struct linop_s* b)
 {
 #if 1
@@ -585,21 +565,34 @@ struct linop_s* linop_plus(const struct linop_s* a, const struct linop_s* b)
 		return (struct linop_s*)linop_clone(a);
 #endif
 
-	auto bdo = linop_domain(b);
-	assert(CFL_SIZE == bdo->size);
-	iovec_check(linop_domain(a), bdo->N, bdo->dims, bdo->strs);
+	PTR_ALLOC(struct linop_s, c);
 
-	auto bco = linop_codomain(b);
-	assert(CFL_SIZE == bco->size);
-	iovec_check(linop_codomain(a), bco->N, bco->dims, bco->strs);
+	c->forward = operator_plus_create(a->forward, b->forward);
+	c->adjoint = operator_plus_create(a->adjoint, b->adjoint);
 
-	PTR_ALLOC(struct plus_data_s, data);
-	SET_TYPEID(plus_data_s, data);
+	if ((NULL != a->normal) && (NULL != b->normal))
+		c->normal = operator_plus_create(a->normal, b->normal);
 
-	data->a = linop_clone(a);
-	data->b = linop_clone(b);
+	if ((NULL != a->normal) && (NULL == b->normal)) {
 
-	return linop_create(bco->N, bco->dims, bdo->N, bdo->dims, CAST_UP(PTR_PASS(data)), plus_apply, plus_adjoint, NULL, NULL, plus_free);
+		auto tmp = operator_chain(b->forward, b->adjoint);
+		c->normal = operator_plus_create(a->normal, tmp);
+		operator_free(tmp);
+	}
+
+	if ((NULL == a->normal) && (NULL != b->normal)) {
+
+		auto tmp = operator_chain(a->forward, a->adjoint);
+		c->normal = operator_plus_create(tmp, b->normal);
+		operator_free(tmp);
+	}
+
+	if ((NULL == a->normal) && (NULL == b->normal))
+		c->normal = NULL;
+
+	c->norm_inv = NULL;
+
+	return PTR_PASS(c);
 }
 
 struct linop_s* linop_plus_FF(const struct linop_s* a, const struct linop_s* b)

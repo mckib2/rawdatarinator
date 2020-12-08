@@ -1,12 +1,13 @@
 /* Copyright 2014-2015. The Regents of the University of California.
- * Copyright 2015-2017. Martin Uecker.
+ * Copyright 2015-2020. Uecker Lab. University Medical Center Göttingen.
  * All rights reserved. Use of this source code is governed by
  * a BSD-style license which can be found in the LICENSE file.
  *
  * Authors:
- * 2012-2019 Martin Uecker <martin.uecker@med.uni-goettingen.de>
+ * 2012-2020 Martin Uecker <martin.uecker@med.uni-goettingen.de>
  * 2018-2019 Sebastian Rosenzweig <sebastian.rosenzweig@med.uni-goettingen.de>
  * 2019 Aurélien Trotier <a.trotier@gmail.com>
+ * 2019-2020 Zhengguo Tan <zhengguo.tan@med.uni-goettingen.de>
  */
 
 #include <stdbool.h>
@@ -31,10 +32,12 @@ static const char usage_str[] = "<output>";
 static const char help_str[] = "Computes k-space trajectories.";
 
 
-int main_traj(int argc, char* argv[])
+int main_traj(int argc, char* argv[argc])
 {
 	int X = 128;
 	int Y = 128;
+	int D = -1;
+	int E = 1;
 	int mb = 1;
 	int turns = 1;
 	float rot = 0.;
@@ -48,13 +51,16 @@ int main_traj(int argc, char* argv[])
 
 	long z_usamp[2] = { 0, 1 }; // { reference Lines, acceleration }
 
-	const char* custom_angle = NULL;
+	const char* custom_angle_file = NULL;
+	const char* gdelays_file = NULL;
 
 
 	const struct opt_s opts[] = {
 
 		OPT_INT('x', &X, "x", "readout samples"),
 		OPT_INT('y', &Y, "y", "phase encoding lines"),
+		OPT_INT('d', &D, "d", "full readout samples"),
+		OPT_INT('e', &E, "e", "number of echoes"),
 		OPT_INT('a', &conf.accel, "a", "acceleration"),
 		OPT_INT('t', &turns, "t", "turns"),
 		OPT_INT('m', &mb, "mb", "SMS multiband factor"),
@@ -71,8 +77,10 @@ int main_traj(int argc, char* argv[])
 		OPT_SET('O', &conf.transverse, "correct transverse gradient error for radial tajectories"),
 		OPT_SET('3', &conf.d3d, "3D"),
 		OPT_SET('c', &conf.asym_traj, "asymmetric trajectory [DC sampled]"),
+		OPT_SET('E', &conf.mems_traj, "multi-echo multi-spoke trajectory"),
 		OPT_VEC2('z', &z_usamp, "Ref:Acel", "Undersampling in z-direction."),
-		OPT_STRING('C', &custom_angle, "file", "custom_angle file [phi + i * psi]"),
+		OPT_STRING('C', &custom_angle_file, "file", "custom_angle file [phi + i * psi]"),
+		OPT_STRING('V', &gdelays_file, "file", "(custom_gdelays)"),
 	};
 
 	cmdline(&argc, argv, 1, 1, usage_str, help_str, ARRAY_SIZE(opts), opts);
@@ -81,22 +89,24 @@ int main_traj(int argc, char* argv[])
 
 	// Load custom_angle
 	long sdims[DIMS];
-	complex float* custom_angle_val = NULL;
+	complex float* custom_angle_vals = NULL;
 
-	if (NULL != custom_angle && conf.radial) {
+	if (NULL != custom_angle_file) {
 
-		debug_printf(DP_INFO, "custom_angle file is used \n");
-		custom_angle_val = load_cfl(custom_angle, DIMS, sdims);
+		if (!conf.radial)
+			error("Custom angles make sense only for radial trajectories!");
 
-		if(Y != sdims[0]){
+		debug_printf(DP_INFO, "Custom-angle file is used.\n");
 
-			debug_printf(DP_INFO, "According to the custom angle file : number of projection (y) = %d\n",sdims[0]);
-			Y = sdims[0];
+		custom_angle_vals = load_cfl(custom_angle_file, DIMS, sdims);
 
-		}
+		if (Y != sdims[0])
+			debug_printf(DP_INFO, "According to the custom angle file : number of projection (y) = %d\n", sdims[0]);
+
+		Y = sdims[0];
 	}
 
-	int tot_sp = Y * mb * turns;	// total number of lines/spokes
+	int tot_sp = Y * E * mb * turns;	// total number of lines/spokes
 	int N = X * tot_sp / conf.accel;
 
 
@@ -104,6 +114,17 @@ int main_traj(int argc, char* argv[])
 	dims[0] = 3;
 	dims[1] = X;
 	dims[2] = (conf.radial ? Y : (Y / conf.accel));
+
+	dims[TE_DIM] = E;
+
+	if (conf.mems_traj)
+		conf.radial = true;
+
+	if (-1 == D)
+		D = X;
+
+	if (D < X)
+		error("actual readout samples must be less than full samples");
 
 	// Variables for z-undersampling
 	long z_reflines = z_usamp[0];
@@ -117,7 +138,6 @@ int main_traj(int argc, char* argv[])
 
 		if ((mb2 < 1) || ((mb - z_reflines) % z_acc != 0))
 			error("Invalid z-Acceleration!\n");
-
 	}
 
 
@@ -163,6 +183,24 @@ int main_traj(int argc, char* argv[])
 	}
 
 
+	long gdims[DIMS];
+	long gstrs[DIMS];
+
+	complex float* gdelays2 = NULL;
+
+	if (NULL != gdelays_file) {
+
+		// FIXME: check that -q/-Q was not used
+
+		gdelays2 = load_cfl(gdelays_file, DIMS, gdims);
+
+		assert((3 == gdims[0] || (6 == gdims[0])));
+		assert(md_check_compat(DIMS - 1, ~0L, dims + 1, gdims + 1));
+
+		md_calc_strides(DIMS, gstrs, gdims, sizeof(complex float));
+	}
+
+
 	complex float* samples = create_cfl(argv[1], DIMS, dims);
 
 	md_clear(DIMS, dims, samples, CFL_SIZE);
@@ -171,15 +209,15 @@ int main_traj(int argc, char* argv[])
 	double angle_atom = M_PI / Y;
 
 	double base_angle[DIMS] = { 0. };
-	calc_base_angles(base_angle, Y, mb2, turns, conf);
+	calc_base_angles(base_angle, Y, E, mb2, turns, conf);
 
 	int p = 0;
 	long pos[DIMS] = { 0 };
 
 	do {
-
 		int i = pos[PHS1_DIM];
-		int j = pos[PHS2_DIM];
+		int j = pos[PHS2_DIM] * conf.accel;
+		int e = pos[TE_DIM];
 		int m = pos[SLICE_DIM];
 
 		if (conf.radial) {
@@ -190,7 +228,13 @@ int main_traj(int argc, char* argv[])
 			 * for symmetric trajectory [DC between between sample no. X/2-1 and X/2, zero-based indexing]
 			 * or asymmetric trajectory [DC component at sample no. X/2, zero-based indexing]
 			 */
-			double read = (float)i + (conf.asym_traj ? 0 : 0.5) - (float)X / 2.;
+			int sample = i + D - X;
+
+			if (conf.mems_traj && (1 == e % 2))
+			       sample =	D - i;
+
+			double read = (float)sample + (conf.asym_traj ? 0 : 0.5) - (float)D / 2.;
+
 
 			if (conf.golden_partition)
 				base_angle[SLICE_DIM] = (m > 0) ? (fmod(angle_atom * m / golden_ratio, angle_atom) / m) : 0;
@@ -214,15 +258,28 @@ int main_traj(int argc, char* argv[])
 				int split = sqrtf(Y);
 				angle2 = s * M_PI / Y * (conf.full_circle ? 2 : 1) * split;
 
-				if (NULL != custom_angle)
-						angle2 = cimag(custom_angle_val[j]);
-
+				if (NULL != custom_angle_vals)
+					angle2 = cimagf(custom_angle_vals[j]);
 			}
 
 
-			if (NULL != custom_angle)
-					angle = creal(custom_angle_val[j]);
+			if (NULL != custom_angle_vals)
+				angle = crealf(custom_angle_vals[j]);
 
+
+			if (NULL != gdelays2) {
+
+				for (pos[0] = 0; pos[0] < gdims[0]; pos[0]++) {
+
+					assert(pos[0] < 6);
+					int a = pos[0] / 3;
+					int b = pos[0] % 3;
+
+					gdelays[a][b] = crealf(MD_ACCESS(DIMS, gstrs, pos, gdelays2));
+				}
+
+				pos[0] = 0;
+			}
 
 			float d[3] = { 0., 0., 0 };
 			gradient_delay(d, gdelays, angle, angle2);
@@ -260,8 +317,11 @@ int main_traj(int argc, char* argv[])
 
 	assert(p == N - 0);
 
-	if (NULL != custom_angle_val)
-		unmap_cfl(3, sdims, custom_angle_val);
+	if (NULL != gdelays2)
+		unmap_cfl(DIMS, gdims, gdelays2);
+
+	if (NULL != custom_angle_vals)
+		unmap_cfl(3, sdims, custom_angle_vals);
 
 	unmap_cfl(3, dims, samples);
 

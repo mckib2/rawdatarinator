@@ -35,6 +35,7 @@ struct vec_ops {
 	void (*fmac)(long N, float* dst, const float* src1, const float* src2);
 	void (*fmac2)(long N, double* dst, const float* src1, const float* src2);
 	void (*smul)(long N, float alpha, float* dst, const float* src1);
+	void (*sadd)(long N, float alpha, float* dst, const float* src1);
 
 	void (*zmul)(long N, _Complex float* dst, const _Complex float* src1, const _Complex float* src2);
 	void (*zdiv)(long N, _Complex float* dst, const _Complex float* src1, const _Complex float* src2);
@@ -45,14 +46,24 @@ struct vec_ops {
 	void (*zfmacc2)(long N, _Complex double* dst, const _Complex float* src1, const _Complex float* src2);
 
 	void (*zsmul)(long N, _Complex float val, _Complex float* dst, const _Complex float* src1);
+	void (*zsadd)(long N, _Complex float val, _Complex float* dst, const _Complex float* src1);
 
 	void (*zpow)(long N,  _Complex float* dst, const _Complex float* src1, const _Complex float* src2);
 	void (*zphsr)(long N, _Complex float* dst, const _Complex float* src);
 	void (*zconj)(long N, _Complex float* dst, const _Complex float* src);
 	void (*zexpj)(long N, _Complex float* dst, const _Complex float* src);
 	void (*zexp)(long N, _Complex float* dst, const _Complex float* src);
+	void (*zlog)(long N, _Complex float* dst, const _Complex float* src);
 	void (*zarg)(long N, _Complex float* dst, const _Complex float* src);
 	void (*zabs)(long N, _Complex float* dst, const _Complex float* src);
+	void (*zatanr)(long N, _Complex float* dst, const _Complex float* src);
+
+	void (*exp)(long N, float* dst, const float* src);
+	void (*log)(long N, float* dst, const float* src);
+
+	void (*zsin)(long N, _Complex float* dst, const _Complex float* src);
+	void (*zcos)(long N, _Complex float* dst, const _Complex float* src);
+	void (*zacos)(long N, _Complex float* dst, const _Complex float* src);
 
 	void (*zcmp)(long N, _Complex float* dst, const _Complex float* src1, const _Complex float* src2);
 	void (*zdiv_reg)(long N, _Complex float* dst, const _Complex float* src1, const _Complex float* src2, _Complex float lambda);
@@ -72,8 +83,13 @@ struct vec_ops {
 //	void (*swap)(long N, float* a, float* b);
 	void (*zhardthresh)(long N,  unsigned int k, _Complex float* d, const _Complex float* x);
 	void (*zhardthresh_mask)(long N,  unsigned int k, _Complex float* d, const _Complex float* x);
+
+	void (*real)(long N, float* dst, const _Complex float* src);
+	void (*imag)(long N, float* dst, const _Complex float* src);
+	void (*zcmpl_real)(long N, _Complex float* dst, const float* src);
+	void (*zcmpl_imag)(long N, _Complex float* dst, const float* src);
+	void (*zcmpl)(long N, _Complex float* dst, const float* real_src, const float* imag_src);
 };
 
 
 #endif
-

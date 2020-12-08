@@ -112,7 +112,7 @@ void error(const char* fmt, ...)
 	if (error_jumper.initialized)
 		longjmp(error_jumper.buf, 1);
 
-	exit(EXIT_FAILURE);
+	abort();
 }
 
 
@@ -461,7 +461,7 @@ static const char* quote(const char* str)
 
 const char* command_line = NULL;
 
-void save_command_line(int argc, char* argv[])
+void save_command_line(int argc, char* argv[static argc])
 {
 	size_t len = 0;
 	const char* qargv[argc];
@@ -502,7 +502,7 @@ void mini_cmdline(int* argcp, char* argv[], int expected_args, const char* usage
 bool mini_cmdline_bool(int* argcp, char* argv[], char flag_char, int expected_args, const char* usage_str, const char* help_str)
 {
 	bool flag = false;
-	struct opt_s opts[1] = { { flag_char, false, opt_set, &flag, NULL } };
+	struct opt_s opts[1] = { { flag_char, NULL, false, opt_set, &flag, NULL } };
 
 	char* help = strdup(help_str);
 

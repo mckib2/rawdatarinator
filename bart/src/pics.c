@@ -79,7 +79,7 @@ static const struct linop_s* sense_nc_init(const long max_dims[DIMS], const long
 }
 
 
-int main_pics(int argc, char* argv[])
+int main_pics(int argc, char* argv[argc])
 {
 	// Initialize default parameters
 
@@ -138,9 +138,9 @@ int main_pics(int argc, char* argv[])
 
 	const struct opt_s opts[] = {
 
-		{ 'l', true, opt_reg, &ropts, "1/-l2\t\ttoggle l1-wavelet or l2 regularization." },
+		{ 'l', NULL, true, opt_reg, &ropts, "1/-l2\t\ttoggle l1-wavelet or l2 regularization." },
 		OPT_FLOAT('r', &ropts.lambda, "lambda", "regularization parameter"),
-		{ 'R', true, opt_reg, &ropts, " <T>:A:B:C\tgeneralized regularization options (-Rh for help)" },
+		{ 'R', NULL, true, opt_reg, &ropts, " <T>:A:B:C\tgeneralized regularization options (-Rh for help)" },
 		OPT_SET('c', &conf.rvc, "real-value constraint"),
 		OPT_FLOAT('s', &step, "step", "iteration stepsize"),
 		OPT_UINT('i', &maxiter, "iter", "max. number of iterations"),
@@ -175,8 +175,9 @@ int main_pics(int argc, char* argv[])
 		OPT_FLOAT('P', &bpsense_eps, "eps", "Basis Pursuit formulation, || y- Ax ||_2 <= eps"),
 		OPT_SELECT('a', enum algo_t, &algo, ALGO_PRIDU, "select Primal Dual"),
 		OPT_SET('M', &sms, "Simultaneous Multi-Slice reconstruction"),
-		OPT_SET('U', &nuconf.lowmem, "Use low-mem mode of the nuFFT"),
+		OPTL_SET('U', "lowmem", &nuconf.lowmem, "Use low-mem mode of the nuFFT"),
 	};
+
 
 	cmdline(&argc, argv, 3, 3, usage_str, help_str, ARRAY_SIZE(opts), opts);
 
@@ -245,16 +246,17 @@ int main_pics(int argc, char* argv[])
 	md_copy_dims(DIMS, max_dims, ksp_dims);
 	md_copy_dims(5, max_dims, map_dims);
 
-	assert(1 == ksp_dims[COEFF_DIM]);
 	long bmx_dims[DIMS];
 
 	if (NULL != basis_file) {
+
+		assert(1 == ksp_dims[COEFF_DIM]);
 
 		assert(basis_dims[TE_DIM] == ksp_dims[TE_DIM]);
 
 		max_dims[COEFF_DIM] = basis_dims[COEFF_DIM];
 
-		md_copy_dims(DIMS, bmx_dims, max_dims);
+		md_select_dims(DIMS, ~MAPS_FLAG, bmx_dims, max_dims);
 		debug_printf(DP_INFO, "Basis: ");
 		debug_print_dims(DP_INFO, DIMS, bmx_dims);
 
@@ -289,7 +291,7 @@ int main_pics(int argc, char* argv[])
 	if (conf.gpu)
 		debug_printf(DP_INFO, "GPU reconstruction\n");
 
-	if (map_dims[MAPS_DIM] > 1) 
+	if (map_dims[MAPS_DIM] > 1)
 		debug_printf(DP_INFO, "%ld maps.\nESPIRiT reconstruction.\n", map_dims[MAPS_DIM]);
 
 	if (conf.bpsense)
@@ -479,7 +481,7 @@ int main_pics(int argc, char* argv[])
 	long img_start_dims[DIMS];
 	complex float* image_start = NULL;
 
-	if (warm_start) { 
+	if (warm_start) {
 
 		debug_printf(DP_DEBUG1, "Warm start: %s\n", image_start_file);
 
@@ -612,15 +614,15 @@ int main_pics(int argc, char* argv[])
 	struct iter_monitor_s* monitor = NULL;
 
 	if (im_truth)
-		monitor = create_monitor(2*md_calc_size(DIMS, img_dims), (const float*)image_truth, NULL, NULL); 
-	
+		monitor = create_monitor(2*md_calc_size(DIMS, img_dims), (const float*)image_truth, NULL, NULL);
+
 	const struct operator_p_s* po = sense_recon_create(&conf, max1_dims, forward_op,
 				pat1_dims, ((NULL != traj_file) || conf.bpsense) ? NULL : pattern1,
 				it.italgo, it.iconf, image_start1, nr_penalties, thresh_ops,
 				trafos_cond ? trafos : NULL, precond_op, monitor);
 
 	const struct operator_s* op = operator_p_bind(po, 1.);
-//	operator_p_free(po);	// FIXME
+	operator_p_free(po);
 
 	long strsx[2][DIMS];
 	const long* strs[2] = { strsx[0], strsx[1] };
@@ -639,9 +641,15 @@ int main_pics(int argc, char* argv[])
 
 	if (0 != loop_flags) {
 
-		op = operator_copy_wrapper(2, strs, op);
+
+		auto op_tmp = operator_copy_wrapper(2, strs, op);
+		operator_free(op);
+		op = op_tmp;
+
 		// op = operator_loop(DIMS, loop_dims, op);
-		op = operator_loop_parallel(DIMS, loop_dims, op, loop_flags, conf.gpu);
+		op_tmp = operator_loop_parallel(DIMS, loop_dims, op, loop_flags, conf.gpu);
+		operator_free(op);
+		op = op_tmp;
 	}
 
 	operator_apply(op, DIMS, img_dims, image, DIMS, conf.bpsense ? img_dims : ksp_dims, conf.bpsense ? NULL : kspace);
@@ -696,5 +704,3 @@ int main_pics(int argc, char* argv[])
 
 	return 0;
 }
-
-

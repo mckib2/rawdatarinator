@@ -1,5 +1,5 @@
 /* Copyright 2013-2018 The Regents of the University of California.
- * Copyright 2016-2019. Martin Uecker.
+ * Copyright 2016-2020. Martin Uecker.
  * Copyright 2017. University of Oxford.
  * All rights reserved. Use of this source code is governed by
  * a BSD-style license which can be found in the LICENSE file.
@@ -38,6 +38,7 @@
 #include "num/vecops.h"
 #include "num/optimize.h"
 #include "num/blas.h"
+#include "num/vecops_strided.h"
 
 #include "misc/misc.h"
 #include "misc/types.h"
@@ -103,7 +104,7 @@ static void make_2op_simple(md_2op_t fun, unsigned int D, const long dims[D], fl
  * @param optr output
  * @param istr1 input 1 strides
  * @param iptr1 input 1 (constant)
- * @param size size of data structures, e.g. complex float 
+ * @param size size of data structures, e.g. complex float
  * @param too two-op multiply function
  */
 static void optimized_twoop_oi(unsigned int D, const long dim[D], const long ostr[D], void* optr, const long istr1[D], const void* iptr1, size_t sizes[2], md_nary_opt_fun_t too)
@@ -132,7 +133,7 @@ static void optimized_twoop_oi(unsigned int D, const long dim[D], const long ost
  * @param iptr1 input 1 (constant)
  * @param istr2 input 2 strides
  * @param iptr2 input 2 (constant)
- * @param size size of data structures, e.g. complex float 
+ * @param size size of data structures, e.g. complex float
  * @param too three-op multiply function
  */
 static void optimized_threeop_oii(unsigned int D, const long dim[D], const long ostr[D], void* optr, const long istr1[D], const void* iptr1, const long istr2[D], const void* iptr2, size_t sizes[3], md_nary_opt_fun_t too)
@@ -408,22 +409,33 @@ static void make_z3op_scalar(md_z3op_t fun, unsigned int D, const long dims[D], 
 
 static void make_3op_scalar(md_3op_t fun, unsigned int D, const long dims[D], const long ostr[D], float* optr, const long istr[D], const float* iptr, float val)
 {
-	float* valp = &val;
+	size_t size = FL_SIZE;
+	unsigned long flags = 0;
 
-#ifdef USE_CUDA
-	if (cuda_ondevice(optr))
-		valp = gpu_constant(&val, FL_SIZE);
-#endif
+	if ((4096 >= size * dims[0]) && (FL_SIZE == ostr[0]) && (FL_SIZE == istr[0]))
+		flags = MD_SET(flags, 0);
 
+	for (unsigned int i = 1; i < D; i++) {
+
+		if (!MD_IS_SET(flags, i - 1))
+			continue;
+
+		if ((4096 >= size * dims[i]) && (dims[i - 1] * ostr[i - 1] == ostr[i]) && (ostr[i] == istr[i]))
+			flags = MD_SET(flags, i);
+	}
+
+	long tdims[D];
 	long strs1[D];
-	md_singleton_strides(D, strs1);
+
+	md_select_dims(D, flags, tdims, dims);
+	md_calc_strides(D, strs1, tdims, FL_SIZE);
+
+	float* valp = md_alloc_sameplace(D, tdims, FL_SIZE, optr);
+	md_fill(D, tdims, valp, &val, FL_SIZE);
 
 	fun(D, dims, ostr, optr, istr, iptr, strs1, valp);
 
-#ifdef USE_CUDA
-	if (cuda_ondevice(optr))
-		md_free(valp);
-#endif
+	md_free(valp);
 }
 
 static void real_from_complex_dims(unsigned int D, long odims[D + 1], const long idims[D])
@@ -517,6 +529,9 @@ static void make_z2opf_from_real(size_t offset, unsigned int D, const long dims[
  */
 void md_zmul2(unsigned int D, const long dim[D], const long ostr[D], complex float* optr, const long istr1[D], const complex float* iptr1, const long istr2[D], const complex float* iptr2)
 {
+	if (simple_zmul(D, dim, ostr, optr, istr1, iptr1, istr2, iptr2))
+		return;
+
 	MAKE_Z3OP(zmul, D, dim, ostr, optr, istr1, iptr1, istr2, iptr2);
 }
 
@@ -541,6 +556,9 @@ void md_zmul(unsigned int D, const long dim[D], complex float* optr, const compl
  */
 void md_mul2(unsigned int D, const long dim[D], const long ostr[D], float* optr, const long istr1[D], const float* iptr1, const long istr2[D], const float* iptr2)
 {
+	if (simple_mul(D, dim, ostr, optr, istr1, iptr1, istr2, iptr2))
+		return;
+
 	MAKE_3OP(mul, D, dim, ostr, optr, istr1, iptr1, istr2, iptr2);
 }
 
@@ -620,7 +638,6 @@ void md_zsmul2(unsigned int D, const long dims[D], const long ostr[D], complex f
 	optimized_twoop_oi(D, dims, ostr, optr, istr, iptr,
 		(size_t[2]){ CFL_SIZE, CFL_SIZE }, nary_zsmul);
 #endif
-
 }
 
 
@@ -717,6 +734,9 @@ void md_smul(unsigned int D, const long dims[D], float* optr, const float* iptr,
  */
 void md_zmulc2(unsigned int D, const long dim[D], const long ostr[D], complex float* optr, const long istr1[D], const complex float* iptr1, const long istr2[D], const complex float* iptr2)
 {
+	if (simple_zmulc(D, dim, ostr, optr, istr1, iptr1, istr2, iptr2))
+		return;
+
 	MAKE_Z3OP(zmulc, D, dim, ostr, optr, istr1, iptr1, istr2, iptr2);
 }
 
@@ -756,6 +776,36 @@ void md_zdiv(unsigned int D, const long dims[D], complex float* optr, const comp
 	make_z3op_simple(md_zdiv2, D, dims, optr, iptr1, iptr2);
 }
 
+
+/**
+ * Divide the first complex array by the second complex array with regularization and save to output (with strides)
+ *
+ * optr = iptr1 / (iptr2 + epsilon)
+ */
+void md_zdiv_reg2(unsigned int D, const long dims[D], const long ostr[D], complex float* optr, const long istr1[D], const complex float* iptr1, const long istr2[D], const complex float* iptr2, complex float lambda)
+{
+	NESTED(void, nary_zdiv_reg, (struct nary_opt_data_s* data, void* ptr[]))
+	{
+		data->ops->zdiv_reg(data->size, ptr[0], ptr[1], ptr[2], lambda);
+	};
+
+	optimized_threeop_oii(D, dims, ostr, optr, istr1, iptr1, istr2, iptr2,
+				(size_t[3]){ [0 ... 2] = CFL_SIZE }, nary_zdiv_reg);
+}
+
+
+/**
+ * Divide the first complex array by the second complex array with regularization and save to output (without strides)
+ *
+ * optr = iptr1 / (iptr2 + epsilon)
+ */
+void md_zdiv_reg(unsigned int D, const long dims[D], complex float* optr, const complex float* iptr1, const complex float* iptr2, complex float lambda)
+{
+	long str[D];
+	md_calc_strides(D, str, dims, CFL_SIZE);
+
+	md_zdiv_reg2(D, dims, str, optr, str, iptr1, str, iptr2, lambda);
+}
 
 
 /**
@@ -1028,12 +1078,12 @@ void md_tenmul_dims(unsigned int D, long max_dims[D], const long out_dims[D], co
 
 static bool detect_matrix(const long dims[3], const long ostrs[3], const long mstrs[3], const long istrs[3])
 {
-        return (   (0 == ostrs[1])
-                && (0 == mstrs[2])
-                && (0 == istrs[0])
-                && ((CFL_SIZE == ostrs[0]) && (ostrs[0] * dims[0] == ostrs[2]))
-                && ((CFL_SIZE == mstrs[0]) && (mstrs[0] * dims[0] == mstrs[1]))
-                && ((CFL_SIZE == istrs[1]) && (istrs[1] * dims[1] == istrs[2])));
+	return (   (0 == ostrs[1])
+		&& (0 == mstrs[2])
+		&& (0 == istrs[0])
+		&& ((CFL_SIZE == ostrs[0]) && (ostrs[0] * dims[0] == ostrs[2]))
+		&& ((CFL_SIZE == mstrs[0]) && (mstrs[0] * dims[0] == mstrs[1]))
+		&& ((CFL_SIZE == istrs[1]) && (istrs[1] * dims[1] == istrs[2])));
 }
 
 
@@ -1099,7 +1149,6 @@ static bool simple_matmul(unsigned int N, const long max_dims[N], const long ost
 #endif
 		return true;
 	}
-
 
 	return false;
 }
@@ -1214,20 +1263,11 @@ void md_zconv2(int N, unsigned long flags,
 }
 
 void md_zconv(int N, unsigned long flags,
-				const long odims[N], complex float* out,
-				const long kdims[N], const complex float* krn,
-				const long idims[N], const complex float* in)
+	      const long odims[N], complex float* out,
+	      const long kdims[N], const complex float* krn,
+	      const long idims[N], const complex float* in)
 {
-	long ostrs[N];
-	md_calc_strides(N, ostrs, odims, CFL_SIZE);
-
-	long kstrs[N];
-	md_calc_strides(N, kstrs, kdims, CFL_SIZE);
-
-	long istrs[N];
-	md_calc_strides(N, istrs, idims, CFL_SIZE);
-
-	md_zconv2(N, flags, odims, ostrs, out, kdims, kstrs, krn, idims, istrs, in);
+	md_zconv2(N, flags, odims, MD_STRIDES(N, odims, CFL_SIZE), out, kdims, MD_STRIDES(N, kdims, CFL_SIZE), krn, idims, MD_STRIDES(N, idims, CFL_SIZE), in);
 }
 
 
@@ -1303,6 +1343,9 @@ void md_zmatmul(unsigned int D, const long out_dims[D], complex float* dst, cons
  */
 void md_zfmac2(unsigned int D, const long dims[D], const long ostr[D], complex float* optr, const long istr1[D], const complex float* iptr1, const long istr2[D], const complex float* iptr2)
 {
+	if (simple_zfmac(D, dims, ostr, optr, istr1, iptr1, istr2, iptr2))
+		return;
+
 	MAKE_Z3OP(zfmac, D, dims, ostr, optr, istr1, iptr1, istr2, iptr2);
 }
 
@@ -1351,6 +1394,9 @@ void md_zfmacD(unsigned int D, const long dims[D], complex double* optr, const c
  */
 void md_fmac2(unsigned int D, const long dims[D], const long ostr[D], float* optr, const long istr1[D], const float* iptr1, const long istr2[D], const float* iptr2)
 {
+	if (simple_fmac(D, dims, ostr, optr, istr1, iptr1, istr2, iptr2))
+		return;
+
 	MAKE_3OP(fmac, D, dims, ostr, optr, istr1, iptr1, istr2, iptr2);
 }
 
@@ -1399,6 +1445,9 @@ void md_fmacD(unsigned int D, const long dims[D], double* optr, const float* ipt
  */
 void md_zfmacc2(unsigned int D, const long dims[D], const long ostr[D], complex float* optr, const long istr1[D], const complex float* iptr1, const long istr2[D], const complex float* iptr2)
 {
+	if (simple_zfmacc(D, dims, ostr, optr, istr1, iptr1, istr2, iptr2))
+		return;
+
 	MAKE_Z3OP(zfmacc, D, dims, ostr, optr, istr1, iptr1, istr2, iptr2);
 }
 
@@ -2092,7 +2141,7 @@ void md_zexpj2(unsigned int D, const long dims[D], const long ostr[D], complex f
 
 /**
  * Get complex exponential with phase = complex arrays (without strides)
- * 
+ *
  * optr = zexp(j * iptr)
  */
 void md_zexpj(unsigned int D, const long dims[D], complex float* optr, const complex float* iptr)
@@ -2126,6 +2175,66 @@ void md_zexp(unsigned int D, const long dims[D], complex float* optr, const comp
 }
 
 
+/**
+ * Real exponential (with strides)
+ *
+ * optr = exp(iptr)
+ */
+void md_exp2(unsigned int D, const long dims[D], const long ostr[D], float* optr, const long istr[D], const float* iptr)
+{
+	MAKE_2OP(exp, D, dims, ostr, optr, istr, iptr);
+}
+
+/**
+ * Real exponential
+ *
+ * optr = exp(iptr)
+ */
+void md_exp(unsigned int D, const long dims[D], float* optr, const float* iptr)
+{
+	make_2op_simple(md_exp2, D, dims, optr, iptr);
+}
+
+/**
+ * Real log (with strides)
+ *
+ * optr = log(iptr)
+ */
+void md_log2(unsigned int D, const long dims[D], const long ostr[D], float* optr, const long istr[D], const float* iptr)
+{
+	MAKE_2OP(log, D, dims, ostr, optr, istr, iptr);
+}
+
+/**
+ * Real log
+ *
+ * optr = log(iptr)
+ */
+void md_log(unsigned int D, const long dims[D], float* optr, const float* iptr)
+{
+	make_2op_simple(md_log2, D, dims, optr, iptr);
+}
+
+/**
+ * Complex logarithm
+ *
+ * optr = zlog(iptr)
+ */
+void md_zlog2(unsigned int D, const long dims[D], const long ostr[D], complex float* optr, const long istr[D], const complex float* iptr)
+{
+	MAKE_Z2OP(zlog, D, dims, ostr, optr, istr, iptr);
+}
+
+/**
+ * Complex logarithm
+ *
+ * optr = zlog(iptr)
+ */
+void md_zlog(unsigned int D, const long dims[D], complex float* optr, const complex float* iptr)
+{
+	make_z2op_simple(md_zlog2, D, dims, optr, iptr);
+}
+
 
 
 /**
@@ -2149,6 +2258,54 @@ void md_zarg(unsigned int D, const long dims[D], complex float* optr, const comp
 {
 	make_z2op_simple(md_zarg2, D, dims, optr, iptr);
 }
+
+
+
+/**
+ * Complex sinus
+ *
+ * optr = zsin(iptr)
+ */
+void md_zsin2(unsigned int D, const long dims[D], const long ostr[D], complex float* optr, const long istr[D], const complex float* iptr)
+{
+	MAKE_Z2OP(zsin, D, dims, ostr, optr, istr, iptr);
+}
+
+
+/**
+ * Complex sinus
+ *
+ * optr = zsin(iptr)
+ */
+void md_zsin(unsigned int D, const long dims[D], complex float* optr, const complex float* iptr)
+{
+	make_z2op_simple(md_zsin2, D, dims, optr, iptr);
+}
+
+
+/**
+ * Complex cosinus
+ *
+ * optr = zexp(iptr)
+ */
+void md_zcos2(unsigned int D, const long dims[D], const long ostr[D], complex float* optr, const long istr[D], const complex float* iptr)
+{
+	MAKE_Z2OP(zcos, D, dims, ostr, optr, istr, iptr);
+}
+
+
+/**
+ * Complex cosinus
+ *
+ * optr = zsin(iptr)
+ */
+void md_zcos(unsigned int D, const long dims[D], complex float* optr, const complex float* iptr)
+{
+	make_z2op_simple(md_zcos2, D, dims, optr, iptr);
+}
+
+
+
 
 
 /**
@@ -2186,7 +2343,7 @@ float md_scalar2(unsigned int D, const long dim[D], const long str1[D], const fl
 	md_singleton_strides(D, stro);
 
 	// Because this might lose precision for large data sets
-	// we use double precision to accumlate result 
+	// we use double precision to accumlate result
 	// (Kahan summation formula would be another option)
 
 	md_fmacD2(D, dim, stro, retp, str1, ptr1, str2, ptr2);
@@ -2282,6 +2439,46 @@ float md_zrmse(unsigned int D, const long dim[D], const complex float* in1, cons
 float md_znrmse(unsigned int D, const long dim[D], const complex float* ref, const complex float* in)
 {
 	return md_zrmse(D, dim, ref, in) / md_zrms(D, dim, ref);
+}
+
+/**
+ * Calculate root-mean-square of real array
+ *
+ * return sqrt(in * in / length(in))
+ */
+float md_rms(unsigned int D, const long dim[D], const float* in)
+{
+	return md_norm(D, dim, in) / sqrtl(md_calc_size(D, dim));
+}
+
+/**
+ * Calculate root-mean-square error between two real arrays
+ *
+ * return sqrt((in1 - in2)^2 / length(in))
+ */
+float md_rmse(unsigned int D, const long dim[D], const float* in1, const float* in2)
+{
+	float* err = md_alloc_sameplace(D, dim, FL_SIZE, in1);
+
+	md_sub(D, dim, err, in1, in2);
+
+	float val = md_rms(D, dim, err);
+
+	md_free(err);
+
+	return val;
+}
+
+
+
+/**
+ * Calculate normalized root-mean-square error between two real arrays
+ *
+ * return RMSE(ref,in) / RMS(ref)
+ */
+float md_nrmse(unsigned int D, const long dim[D], const float* ref, const float* in)
+{
+	return md_rmse(D, dim, ref, in) / md_rms(D, dim, ref);
 }
 
 
@@ -2522,6 +2719,29 @@ void md_zabs(unsigned int D, const long dims[D], complex float* optr, const comp
 {
 	make_z2op_simple(md_zabs2, D, dims, optr, iptr);
 }
+
+
+
+/**
+ * Calculate arc tangent of real part.
+ *
+ */
+void md_zatanr2(unsigned int D, const long dims[D], const long ostr[D], complex float* optr,
+		const long istr[D], const complex float* iptr)
+{
+	MAKE_Z2OP(zatanr, D, dims, ostr, optr, istr, iptr);
+}
+
+
+/**
+ * Calculate arc tangent of real part.
+ *
+ */
+void md_zatanr(unsigned int D, const long dims[D], complex float* optr, const complex float* iptr)
+{
+	make_z2op_simple(md_zatanr2, D, dims, optr, iptr);
+}
+
 
 
 
@@ -3729,4 +3949,95 @@ void md_zsum(unsigned int D, const long dims[D], unsigned int flags, complex flo
 }
 
 
+void md_real2(unsigned int D, const long dims[D], const long ostrs[D], float* dst, const long istrs[D], const complex float* src)
+{
+	md_copy2(D, dims, ostrs, dst, istrs, (const float*)src + 0, FL_SIZE);
+}
+
+void md_real(unsigned int D, const long dims[D], float* dst, const complex float* src)
+{
+	md_real2(D, dims, MD_STRIDES(D, dims, FL_SIZE), dst, MD_STRIDES(D, dims, CFL_SIZE), src);
+}
+
+void md_imag2(unsigned int D, const long dims[D], const long ostrs[D], float* dst, const long istrs[D], const complex float* src)
+{
+	md_copy2(D, dims, ostrs, dst, istrs, (const float*)src + 1, FL_SIZE);
+}
+
+void md_imag(unsigned int D, const long dims[D], float* dst, const complex float* src)
+{
+	md_imag2(D, dims, MD_STRIDES(D, dims, FL_SIZE), dst, MD_STRIDES(D, dims, CFL_SIZE), src);
+}
+
+
+
+void md_zcmpl_real2(unsigned int D, const long dims[D], const long ostrs[D], complex float* dst, const long istrs[D], const float* src)
+{
+#ifdef USE_CUDA
+	if (cuda_ondevice(dst) != cuda_ondevice(src)) {
+
+		md_clear2(D, dims, ostrs, (float*)dst + 0, CFL_SIZE);
+		md_copy2(D, dims, ostrs, (float*)dst + 0, istrs, src, FL_SIZE);
+		return;
+	}
+#endif
+	NESTED(void, nary_real, (struct nary_opt_data_s* data, void* ptr[]))
+	{
+		data->ops->zcmpl_real(data->size, ptr[0], ptr[1]);
+	};
+
+	optimized_twoop_oi(D, dims, ostrs, dst, istrs, src, (size_t[2]){ CFL_SIZE, FL_SIZE }, nary_real);
+}
+
+void md_zcmpl_real(unsigned int D, const long dims[D], complex float* dst, const float* src)
+{
+	md_zcmpl_real2(D, dims, MD_STRIDES(D, dims, CFL_SIZE), dst, MD_STRIDES(D, dims, FL_SIZE), src);
+}
+
+void md_zcmpl_imag2(unsigned int D, const long dims[D], const long ostrs[D], complex float* dst, const long istrs[D], const float* src)
+{
+#ifdef USE_CUDA
+	if (cuda_ondevice(dst) != cuda_ondevice(src)) {
+
+		md_clear2(D, dims, ostrs, (float*)dst + 0, CFL_SIZE);
+		md_copy2(D, dims, ostrs, (float*)dst + 1, istrs, src, FL_SIZE);
+		return;
+	}
+#endif
+	NESTED(void, nary_imag, (struct nary_opt_data_s* data, void* ptr[]))
+	{
+		data->ops->zcmpl_imag(data->size, ptr[0], ptr[1]);
+	};
+
+	optimized_twoop_oi(D, dims, ostrs, dst, istrs, src, (size_t[2]){ CFL_SIZE, FL_SIZE }, nary_imag);
+}
+
+void md_zcmpl_imag(unsigned int D, const long dims[D], complex float* dst, const float* src)
+{
+	md_zcmpl_imag2(D, dims, MD_STRIDES(D, dims, CFL_SIZE), dst, MD_STRIDES(D, dims, FL_SIZE), src);
+}
+
+
+void md_zcmpl2(unsigned int D, const long dims[D], const long ostr[D], complex float* dst, const long istr1[D], const float* src_real, const long istr2[D], const float* src_imag)
+{
+#ifdef USE_CUDA
+	if ((cuda_ondevice(dst) != cuda_ondevice(src_real)) || (cuda_ondevice(dst) != cuda_ondevice(src_imag))) {
+
+		md_copy2(D, dims, ostr, (float*)dst + 0, istr1, src_real, FL_SIZE);
+		md_copy2(D, dims, ostr, (float*)dst + 1, istr2, src_imag, FL_SIZE);
+		return;
+	}
+#endif
+	NESTED(void, nary_zcmpl, (struct nary_opt_data_s* data, void* ptr[]))
+	{
+		data->ops->zcmpl(data->size, ptr[0], ptr[1], ptr[2]);
+	};
+
+	optimized_threeop_oii(D, dims, ostr, dst, istr1, src_real, istr2, src_imag, (size_t[3]){ CFL_SIZE, FL_SIZE , FL_SIZE }, nary_zcmpl);
+}
+
+extern void md_zcmpl(unsigned int D, const long dims[D], complex float* dst, const float* src_real, const float* src_imag)
+{
+	md_zcmpl2(D, dims, MD_STRIDES(D, dims, CFL_SIZE), dst, MD_STRIDES(D, dims, FL_SIZE), src_real, MD_STRIDES(D, dims, FL_SIZE), src_imag);
+}
 

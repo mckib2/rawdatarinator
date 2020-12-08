@@ -243,7 +243,7 @@ static bool opt_reg(void* ptr, char c, const char* optarg)
 	return false;
 }
 
-int main_sqpics(int argc, char* argv[])
+int main_sqpics(int argc, char* argv[argc])
 {
 	// Initialize default parameters
 
@@ -290,9 +290,9 @@ int main_sqpics(int argc, char* argv[])
 
 	const struct opt_s opts[] = {
 
-		{ 'l', true, opt_reg, &ropts, "1/-l2\t\ttoggle l1-wavelet or l2 regularization." },
+		{ 'l', NULL, true, opt_reg, &ropts, "1/-l2\t\ttoggle l1-wavelet or l2 regularization." },
 		OPT_FLOAT('r', &ropts.lambda, "lambda", "regularization parameter"),
-		{ 'R', true, opt_reg, &ropts, " <T>:A:B:C\tgeneralized regularization options (-Rh for help)" },
+		{ 'R', NULL, true, opt_reg, &ropts, " <T>:A:B:C\tgeneralized regularization options (-Rh for help)" },
 		//OPT_SET('c', &conf.rvc, "real-value constraint"),
 		OPT_FLOAT('s', &step, "step", "iteration stepsize"),
 		OPT_UINT('i', &maxiter, "iter", "max. number of iterations"),

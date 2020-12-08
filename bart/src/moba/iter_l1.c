@@ -31,8 +31,9 @@
 #include "iter/prox.h"
 #include "iter/vec.h"
 #include "iter/italgos.h"
-#include "iter/iter3.h"
 #include "iter/iter2.h"
+#include "iter/iter3.h"
+#include "iter/iter4.h"
 
 #include "iter_l1.h"
 
@@ -64,25 +65,27 @@ DEF_TYPEID(T1inv_s);
 
 
 
-static void normal_fista(iter_op_data* _data, float* dst, const float* src)
+static void normal(iter_op_data* _data, float* dst, const float* src)
 {
 	auto data = CAST_DOWN(T1inv_s, _data);
 
-	float* tmp = md_alloc_sameplace(1, MD_DIMS(data->size_y), FL_SIZE, src);
-
-	linop_forward_unchecked(nlop_get_derivative(data->nlop, 0, 0), (complex float*)tmp, (const complex float*)src);
-	linop_adjoint_unchecked(nlop_get_derivative(data->nlop, 0, 0), (complex float*)dst, (const complex float*)tmp);
-
-	md_free(tmp);
+	linop_normal_unchecked(nlop_get_derivative(data->nlop, 0, 0), (complex float*)dst, (const complex float*)src);
 
 	long res = data->dims[0];
 	long parameters = data->dims[COEFF_DIM];
 	long coils = data->dims[COIL_DIM];
+	long slices = data->dims[SLICE_DIM];
 
-	md_axpy(1, MD_DIMS(data->size_x * coils / (coils + parameters)),
-						 dst + res * res * 2 * parameters,
-						 data->alpha,
-						 src + res * res * 2 * parameters);
+	if (1 == data->conf->opt_reg) {
+
+		md_axpy(1, MD_DIMS(data->size_x * coils / (coils + parameters)),
+	                                        dst + res * res * 2 * parameters * slices,
+						data->alpha,
+	                                        src + res * res * 2 * parameters * slices);
+	} else {
+
+		md_axpy(1, MD_DIMS(data->size_x), dst, data->alpha, src);
+	}
 }
 
 static void pos_value(iter_op_data* _data, float* dst, const float* src)
@@ -91,13 +94,19 @@ static void pos_value(iter_op_data* _data, float* dst, const float* src)
 
 	long res = data->dims[0];
 	long parameters = data->dims[COEFF_DIM];
+	long slices = data->dims[SLICE_DIM];
 
 	long dims1[DIMS];
 
 	md_select_dims(DIMS, FFT_FLAGS, dims1, data->dims);
 
-	md_zsmax(DIMS, dims1, (_Complex float*)dst + (parameters - 1) * res * res,
-			(const _Complex float*)src + (parameters - 1) * res * res, data->conf->lower_bound);
+	for (int i = 0; i < slices; i++) {
+
+	        md_zsmax(DIMS, dims1, (_Complex float*)dst + (parameters - data->conf->constrained_maps) * res * res + i * res * res * parameters,
+			(const _Complex float*)src + (parameters - data->conf->constrained_maps) * res * res + i * res * res * parameters, data->conf->lower_bound);
+
+        }
+
 }
 
 
@@ -105,6 +114,10 @@ static void pos_value(iter_op_data* _data, float* dst, const float* src)
 static void combined_prox(iter_op_data* _data, float rho, float* dst, const float* src)
 {
 	struct T1inv_s* data = CAST_DOWN(T1inv_s, _data);
+
+	// coil sensitivity part is left untouched
+
+	assert(src == dst); 
 
 	if (data->first_iter) {
 
@@ -115,7 +128,8 @@ static void combined_prox(iter_op_data* _data, float rho, float* dst, const floa
 		pos_value(_data, dst, src);
 	}
 
-	operator_p_apply_unchecked(data->prox2, rho, (_Complex float*)dst, (const _Complex float*)dst);
+	if (1 == data->conf->opt_reg)
+		operator_p_apply_unchecked(data->prox2, rho, (_Complex float*)dst, (const _Complex float*)dst);
 
 	pos_value(_data, dst, dst);
 }
@@ -128,10 +142,10 @@ static void inverse_fista(iter_op_data* _data, float alpha, float* dst, const fl
 
 	data->alpha = alpha;	// update alpha for normal operator
 
-    
+
 	void* x = md_alloc_sameplace(1, MD_DIMS(data->size_x), FL_SIZE, src);
 	md_gaussian_rand(1, MD_DIMS(data->size_x / 2), x);
-	double maxeigen = power(20, data->size_x, select_vecops(src), (struct iter_op_s){ normal_fista, CAST_UP(data) }, x);
+	double maxeigen = power(20, data->size_x, select_vecops(src), (struct iter_op_s){ normal, CAST_UP(data) }, x);
 	md_free(x);
 
 	double step = data->conf->step / maxeigen;
@@ -159,7 +173,7 @@ static void inverse_fista(iter_op_data* _data, float alpha, float* dst, const fl
 		data->size_x,
 		select_vecops(src),
 		continuation,
-		(struct iter_op_s){ normal_fista, CAST_UP(data) },
+		(struct iter_op_s){ normal, CAST_UP(data) },
 		(struct iter_op_p_s){ combined_prox, CAST_UP(data) },
 		dst, tmp, NULL);
 
@@ -171,7 +185,7 @@ static void inverse_fista(iter_op_data* _data, float alpha, float* dst, const fl
 }
 
 
-static const struct operator_p_s* create_prox(const long img_dims[DIMS])
+static const struct operator_p_s* create_prox(const long img_dims[DIMS], unsigned long jflag, float lambda)
 {
 	bool randshift = true;
 	long minsize[DIMS] = { [0 ... DIMS - 1] = 1 };
@@ -186,7 +200,7 @@ static const struct operator_p_s* create_prox(const long img_dims[DIMS])
 		}
 	}
 
-	return prox_wavelet_thresh_create(DIMS, img_dims, wflags, COEFF_FLAG, minsize, 1., randshift);
+	return prox_wavelet_thresh_create(DIMS, img_dims, wflags, jflag, minsize, lambda, randshift);
 }
 
 
@@ -242,13 +256,13 @@ static const struct operator_p_s* T1inv_p_create(const struct mdb_irgnm_l1_conf*
 	md_select_dims(DIMS, ~COIL_FLAG, img_dims, dims);
 	debug_print_dims(DP_INFO, DIMS, img_dims);
 
-	auto prox1 = create_prox(img_dims);
-	auto prox2 = op_p_auto_normalize(prox1, ~COEFF_FLAG);
+	auto prox1 = create_prox(img_dims, COEFF_FLAG, 1.);
+	auto prox2 = op_p_auto_normalize(prox1, ~(COEFF_FLAG | SLICE_FLAG));
 
 	struct T1inv_s idata = {
 
 		{ &TYPEID(T1inv_s) }, nlop_clone(nlop), conf,
-		N, M, 1.0, ndims, true, 0, prox1, prox2
+		N, M, 1.0, ndims, true, 0, prox1, conf->auto_norm_off ? prox1 : prox2
 	};
 
 	data->data = idata;
@@ -258,35 +272,9 @@ static const struct operator_p_s* T1inv_p_create(const struct mdb_irgnm_l1_conf*
 
 
 
-struct iterT1_nlop_s {
-
-	INTERFACE(iter_op_data);
-
-	struct nlop_s nlop;
-};
-
-DEF_TYPEID(iterT1_nlop_s);
-
-
-static void nlop_for_iter(iter_op_data* _o, float* _dst, const float* _src)
-{
-	const auto nlop = CAST_DOWN(iterT1_nlop_s, _o);
-
-	operator_apply_unchecked(nlop->nlop.op, (complex float*)_dst, (const complex float*)_src);
-}
-
-static void nlop_der_iter(iter_op_data* _o, float* _dst, const float* _src)
-{
-	const auto nlop = CAST_DOWN(iterT1_nlop_s, _o);
-
-	assert(2 == operator_nr_args(nlop->nlop.op));
-	linop_forward_unchecked(nlop->nlop.derivative[0], (complex float*)_dst, (const complex float*)_src);
-}
-
-
 
 void mdb_irgnm_l1(const struct mdb_irgnm_l1_conf* conf,
-	const long dims[],
+	const long dims[DIMS],
 	struct nlop_s* nlop,
 	long N, float* dst,
 	long M, const float* src)
@@ -297,17 +285,11 @@ void mdb_irgnm_l1(const struct mdb_irgnm_l1_conf* conf,
 	assert(M * sizeof(float) == md_calc_size(cd->N, cd->dims) * cd->size);
 	assert(N * sizeof(float) == md_calc_size(dm->N, dm->dims) * dm->size);
 
-	struct iterT1_nlop_s nl_data = { { &TYPEID(iterT1_nlop_s) }, *nlop };
-
 	const struct operator_p_s* inv_op = T1inv_p_create(conf, dims, nlop);
 
-	irgnm2(conf->c2->iter, conf->c2->alpha, 0., conf->c2->alpha_min, conf->c2->redu, N, M, select_vecops(src),
-		(struct iter_op_s){ nlop_for_iter, CAST_UP(&nl_data) },
-		(struct iter_op_s){ nlop_der_iter, CAST_UP(&nl_data) },
-		OPERATOR_P2ITOP(inv_op),
-		dst, NULL, src,
-		(struct iter_op_s){ NULL, NULL },
-		NULL);
+	iter4_irgnm2(CAST_UP(conf->c2), nlop,
+		N, dst, NULL, M, src, inv_op,
+		(struct iter_op_s){ NULL, NULL });
 
 	operator_p_free(inv_op);
 }

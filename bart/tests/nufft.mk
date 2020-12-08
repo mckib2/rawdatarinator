@@ -137,10 +137,58 @@ tests/test-nufft-gpu: traj phantom nufft nrmse
 	touch $@
 
 
+tests/test-nufft-over: traj phantom resize nufft nrmse
+	set -e ; mkdir $(TESTS_TMP) ; cd $(TESTS_TMP)					;\
+	$(TOOLDIR)/traj -r -x128 -y128 traj.ra						;\
+	$(TOOLDIR)/phantom img.ra							;\
+	$(TOOLDIR)/resize -c 0 256 1 256 img.ra img2.ra					;\
+	$(TOOLDIR)/nufft    -r traj.ra img.ra ksp1.ra					;\
+	$(TOOLDIR)/nufft -1 -r traj.ra img2.ra ksp2.ra					;\
+	$(TOOLDIR)/nrmse -t 0.000001 ksp1.ra ksp2.ra					;\
+	$(TOOLDIR)/nufft -a    traj.ra ksp1.ra reco1.ra					;\
+	$(TOOLDIR)/nufft -a -1 -r traj.ra ksp1.ra reco2a.ra				;\
+	$(TOOLDIR)/resize -c 0 128 1 128 reco2a.ra reco2.ra				;\
+	$(TOOLDIR)/nrmse -t 0.000001 reco1.ra reco2.ra					;\
+	rm *.ra ; cd .. ; rmdir $(TESTS_TMP)
+	touch $@
+
+
+
+# test low-mem adjoin
+
+tests/test-nufft-lowmem-adjoint: zeros noise traj nufft nrmse
+	set -e; mkdir $(TESTS_TMP) ; cd $(TESTS_TMP)					;\
+	$(TOOLDIR)/zeros 4 1 128 128 3 z.ra						;\
+	$(TOOLDIR)/noise -s321 z.ra n2.ra						;\
+	$(TOOLDIR)/traj -r -x128 -y128 traj.ra						;\
+	$(TOOLDIR)/nufft -a traj.ra n2.ra x1.ra						;\
+	$(TOOLDIR)/nufft --lowmem -a traj.ra n2.ra x2.ra				;\
+	$(TOOLDIR)/nrmse -t 0.000001 x1.ra x2.ra					;\
+	rm *.ra ; cd .. ; rmdir $(TESTS_TMP)
+	touch $@
+
+
+
+# test inverse using definition
+
+tests/test-nufft-lowmem-inverse: traj scale phantom nufft nrmse
+	set -e ; mkdir $(TESTS_TMP) ; cd $(TESTS_TMP)					;\
+	$(TOOLDIR)/traj -r -x256 -y201 traj.ra						;\
+	$(TOOLDIR)/scale 0.5 traj.ra traj2.ra						;\
+	$(TOOLDIR)/phantom -t traj2.ra ksp.ra						;\
+	$(TOOLDIR)/nufft -m5 -r -i traj2.ra ksp.ra reco1.ra				;\
+	$(TOOLDIR)/nufft -m5 --lowmem -r -i traj2.ra ksp.ra reco2.ra			;\
+	$(TOOLDIR)/nrmse -t 0.00005 reco1.ra reco2.ra					;\
+	rm *.ra ; cd .. ; rmdir $(TESTS_TMP)
+	touch $@
+
+
+
 
 TESTS += tests/test-nufft-forward tests/test-nufft-adjoint tests/test-nufft-inverse tests/test-nufft-toeplitz
-TESTS += tests/test-nufft-batch
 TESTS += tests/test-nufft-nudft tests/test-nudft-forward tests/test-nudft-adjoint
+TESTS += tests/test-nufft-batch tests/test-nufft-over
+TESTS += tests/test-nufft-lowmem-adjoint tests/test-nufft-lowmem-inverse
 
 TESTS_GPU += tests/test-nufft-gpu
 

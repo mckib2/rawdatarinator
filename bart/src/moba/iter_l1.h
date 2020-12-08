@@ -11,9 +11,12 @@ struct nlop_s;
 struct mdb_irgnm_l1_conf {
 
 	struct iter3_irgnm_conf* c2;
+	unsigned int opt_reg;
 
 	float step;
 	float lower_bound;
+	int constrained_maps;
+	bool auto_norm_off;
 };
 
 void mdb_irgnm_l1(const struct mdb_irgnm_l1_conf* conf,

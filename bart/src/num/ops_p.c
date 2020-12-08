@@ -19,7 +19,7 @@
 struct operator_s {
 
 	unsigned int N;
-	unsigned int io_flags;
+	const bool* io_flags;
 	const struct iovec_s** domain;
 
 	operator_data_t* data;
@@ -53,7 +53,10 @@ const struct iovec_s* operator_p_domain(const struct operator_p_s* _op)
 {
 	auto op = (const struct operator_s*)_op;
 	assert(3 == op->N);
-	assert(2u == op->io_flags);
+	assert(!op->io_flags[0]);
+	assert(op->io_flags[1]);
+	assert(!op->io_flags[2]);
+
 	return op->domain[2];
 }
 
@@ -67,7 +70,10 @@ const struct iovec_s* operator_p_codomain(const struct operator_p_s* _op)
 {
 	auto op = (const struct operator_s*)_op;
 	assert(3 == op->N);
-	assert(2u == op->io_flags);
+	assert(!op->io_flags[0]);
+	assert(op->io_flags[1]);
+	assert(!op->io_flags[2]);
+
 	return op->domain[1];
 }
 
@@ -125,6 +131,7 @@ static void operator_del(const struct shared_obj_s* sptr)
 		iovec_free(x->domain[i]);
 
 	xfree(x->domain);
+	xfree(x->io_flags);
 	xfree(x);
 }
 
@@ -133,7 +140,7 @@ static void operator_del(const struct shared_obj_s* sptr)
 /**
  * Create an operator with one parameter (without strides)
  */
-const struct operator_p_s* operator_p_create2(unsigned int ON, const long out_dims[ON], const long out_strs[ON], 
+const struct operator_p_s* operator_p_create2(unsigned int ON, const long out_dims[ON], const long out_strs[ON],
 		unsigned int IN, const long in_dims[IN], const long in_strs[IN],
 		operator_data_t* data, operator_p_fun_t apply, operator_del_t del)
 {
@@ -151,8 +158,10 @@ const struct operator_p_s* operator_p_create2(unsigned int ON, const long out_di
 	(*dom)[1] = iovec_create2(ON, out_dims, out_strs, CFL_SIZE);
 	(*dom)[2] = iovec_create2(IN, in_dims, in_strs, CFL_SIZE);
 
+	bool io_flags[3] = {false, true, false};
+
 	o->N = 3;
-	o->io_flags = MD_BIT(1);
+	o->io_flags = ARR_CLONE(bool[3], io_flags);
 	o->domain = *PTR_PASS(dom);
 	o->data = CAST_UP(PTR_PASS(op));
 	o->apply = op_p_apply;
@@ -178,8 +187,8 @@ const struct operator_p_s* operator_p_create2(unsigned int ON, const long out_di
  * @param apply function that applies the operation
  * @param del function that frees the data
  */
-const struct operator_p_s* operator_p_create(unsigned int ON, const long out_dims[ON], 
-		unsigned int IN, const long in_dims[IN], 
+const struct operator_p_s* operator_p_create(unsigned int ON, const long out_dims[ON],
+		unsigned int IN, const long in_dims[IN],
 		operator_data_t* data, operator_p_fun_t apply, operator_del_t del)
 {
 	return operator_p_create2(ON, out_dims, MD_STRIDES(ON, out_dims, CFL_SIZE),
@@ -197,7 +206,10 @@ const struct operator_s* operator_p_upcast(const struct operator_p_s* op)
 const struct operator_p_s* operator_p_downcast(const struct operator_s* op)
 {
 	assert(3 == op->N);
-	assert(2u == op->io_flags);
+
+	assert(!op->io_flags[0]);
+	assert(op->io_flags[1]);
+	assert(!op->io_flags[2]);
 
 	return (const struct operator_p_s*)op;
 }
@@ -234,6 +246,26 @@ const struct operator_p_s* operator_p_pst_chain(const struct operator_p_s* _a, c
 	return operator_p_downcast(z);
 }
 
+const struct operator_p_s* operator_p_pre_chain_FF(const struct operator_s* a, const struct operator_p_s* _b)
+{
+	auto result = operator_p_pre_chain(a, _b);
+
+	operator_free(a);
+	operator_p_free(_b);
+
+	return result;
+}
+
+const struct operator_p_s* operator_p_pst_chain_FF(const struct operator_p_s* _a, const struct operator_s* b)
+{
+	auto result = operator_p_pst_chain(_a, b);
+
+	operator_p_free(_a);
+	operator_free(b);
+
+	return result;
+}
+
 void operator_p_apply2(const struct operator_p_s* _op, float mu, unsigned int ON, const long odims[ON], const long ostrs[ON], complex float* dst, const long IN, const long idims[IN], const long istrs[IN], const complex float* src)
 {
 	auto op = operator_p_upcast(_op);
@@ -259,7 +291,7 @@ void operator_p_apply_unchecked(const struct operator_p_s* _op, float mu, comple
 	auto op = operator_p_upcast(_op);
 
 	assert(3 == op->N);
-	op->apply(op->data, 3, (void*[3]){ &mu, (void*)dst, (void*)src });
+	operator_generic_apply_unchecked(op , 3, (void*[3]){ &mu, (void*)dst, (void*)src });
 }
 
 
@@ -268,9 +300,18 @@ const struct operator_s* operator_p_bind(const struct operator_p_s* op, float al
 	float* nalpha = xmalloc(sizeof(float));
 	*nalpha = alpha;
 
-	return operator_attach(operator_bind2(operator_p_upcast(op), 0, 1, (long[]){ 1 }, (long[]){ 0 }, nalpha), nalpha, xfree);
+	const struct operator_s* bind = operator_bind2(operator_p_upcast(op), 0, 1, (long[]){ 1 }, (long[]){ 0 }, nalpha);
+	const struct operator_s* result = operator_attach(bind, nalpha, xfree);
+	operator_free(bind);
+	return result;
 }
 
+const struct operator_s* operator_p_bind_F(const struct operator_p_s* op, float alpha)
+{
+	auto result = operator_p_bind(op, alpha);
+	operator_p_free(op);
+	return result;
+}
 
 
 const struct operator_p_s* operator_p_gpu_wrapper(const struct operator_p_s* op)
@@ -287,6 +328,51 @@ const struct operator_p_s* operator_p_stack(int A, int B, const struct operator_
 	auto c = operator_stack2(2, (int[]){ 1, 2 }, (int[]){ A, B }, a, b);
 
 	return operator_p_downcast(c);
+}
+
+const struct operator_p_s* operator_p_stack_FF(int A, int B, const struct operator_p_s* _a, const struct operator_p_s* _b)
+{
+	auto result = operator_p_stack(A, B, _a, _b);
+
+	operator_p_free(_a);
+	operator_p_free(_b);
+
+	return result;
+}
+
+const struct operator_p_s* operator_p_reshape_in(const struct operator_p_s* op, unsigned int N, const long dims[N])
+{
+	return operator_p_downcast(operator_reshape(operator_p_upcast(op), 2, N, dims));
+}
+
+const struct operator_p_s* operator_p_reshape_out(const struct operator_p_s* op, unsigned int N, const long dims[N])
+{
+	return operator_p_downcast(operator_reshape(operator_p_upcast(op), 1, N, dims));
+}
+
+const struct operator_p_s* operator_p_reshape_in_F(const struct operator_p_s* op, unsigned int N, const long dims[N])
+{
+	auto result = operator_p_reshape_in(op, N, dims);
+	operator_p_free(op);
+	return result;
+}
+
+const struct operator_p_s* operator_p_reshape_out_F(const struct operator_p_s* op, unsigned int N, const long dims[N])
+{
+	auto result = operator_p_reshape_out(op, N, dims);
+	operator_p_free(op);
+	return result;
+}
+
+const struct operator_p_s* operator_p_flatten_F(const struct operator_p_s* op)
+{
+	auto dom = operator_p_domain(op);
+	auto cod = operator_p_codomain(op);
+
+	assert(iovec_check(dom, cod->N, cod->dims, cod->strs));
+	long size = md_calc_size(dom->N, dom->dims);
+
+	return operator_p_reshape_out_F(operator_p_reshape_in_F(op, 1, MD_DIMS(size)), 1, MD_DIMS(size));
 }
 
 
@@ -320,5 +406,3 @@ const struct operator_p_s* operator_p_scale(int N, const long dims[N])
 
 	return operator_p_create(N, dims, N, dims, CAST_UP(PTR_PASS(data)), op_p_scale_apply, op_p_scale_del);
 }
-
-

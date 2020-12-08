@@ -32,6 +32,7 @@ struct itop_s {
 	italgo_fun2_t italgo;
 	iter_conf* iconf;
 	struct iter_monitor_s* monitor;
+	itop_continuation_t* icont;
 
 	const struct operator_s* op;
 	unsigned int num_funs;
@@ -39,6 +40,7 @@ struct itop_s {
 
 	const struct iovec_s* iov;
 
+	bool warmstart;
 	const float* init;
 
 	const struct operator_p_s** prox_funs;
@@ -52,18 +54,30 @@ static void itop_apply(const operator_data_t* _data, float alpha, complex float*
 {
 	const auto data = CAST_DOWN(itop_s, _data);
 
-	if (NULL == data->init) {
+	const float* init = data->init;
+
+	if (data->warmstart) {
+
+		assert(NULL == init);
+		init = (float*)dst;
+	}
+
+	if (NULL == init) {
 
 		md_clear(1, MD_DIMS(data->size), dst, sizeof(float));
 
 	} else {
 
-		md_copy(data->iov->N, data->iov->dims, dst, data->init, data->iov->size);
+		md_copy(data->iov->N, data->iov->dims, dst, init, data->iov->size);
 	}
 
 	iter_conf* iconf2 = xmalloc(SIZEOF(data->iconf));
 	memcpy(iconf2, data->iconf, SIZEOF(data->iconf));
 	iconf2->alpha = alpha;
+
+	// callback to change parameters for this run
+	if (NULL != data->icont)
+		data->icont(iconf2);
 
 	data->italgo(iconf2, data->op, data->num_funs, data->prox_funs, data->prox_linops, NULL,
 			NULL, data->size, (float*)dst, (const float*)src, data->monitor);
@@ -96,18 +110,20 @@ static void itop_del(const operator_data_t* _data)
 
 		xfree(data->prox_linops);
 	}
-	
-	xfree(data);		
+
+	xfree(data);
 }
 
 
 const struct operator_p_s* itop_p_create(italgo_fun2_t italgo, iter_conf* iconf,
+					bool warmstart,
 					const float* init,
 					const struct operator_s* op,
 					unsigned int num_funs,
 					const struct operator_p_s* prox_funs[num_funs],
 					const struct linop_s* prox_linops[num_funs],
-					struct iter_monitor_s* monitor)
+					struct iter_monitor_s* monitor,
+					itop_continuation_t icont)
 {
 	PTR_ALLOC(struct itop_s, data);
 	SET_TYPEID(itop_s, data);
@@ -126,12 +142,14 @@ const struct operator_p_s* itop_p_create(italgo_fun2_t italgo, iter_conf* iconf,
 
 	data->iconf = iconf;
 	data->italgo = italgo;
+	data->icont = icont;
 	data->monitor = monitor;
 	data->op = (NULL == op) ? NULL : operator_ref(op);
 	data->num_funs = num_funs;
 	data->size = 2 * md_calc_size(iov->N, iov->dims);	// FIXME: do not assume complex
 	data->prox_funs = NULL;
 	data->prox_linops = NULL;
+	data->warmstart = warmstart;
 	data->init = NULL;
 	data->iov = iovec_create(iov->N, iov->dims, iov->size);
 
@@ -165,13 +183,17 @@ const struct operator_p_s* itop_p_create(italgo_fun2_t italgo, iter_conf* iconf,
 
 
 const struct operator_s* itop_create(	italgo_fun2_t italgo, iter_conf* iconf,
+					bool warmstart,
 					const float* init,
 					const struct operator_s* op,
 					unsigned int num_funs,
 					const struct operator_p_s* prox_funs[num_funs],
 					const struct linop_s* prox_linops[num_funs],
-					struct iter_monitor_s* monitor)
+					struct iter_monitor_s* monitor,
+					itop_continuation_t icont)
 {
-	return operator_p_bind(itop_p_create(italgo, iconf, init, op, num_funs, prox_funs, prox_linops, monitor), 1.);
+	auto tmp = itop_p_create(italgo, iconf, warmstart, init, op, num_funs, prox_funs, prox_linops, monitor, icont);
+	auto result = operator_p_bind(tmp, 1.);
+	operator_p_free(tmp);
+	return result;
 }
-

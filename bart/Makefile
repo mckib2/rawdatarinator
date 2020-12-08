@@ -27,6 +27,8 @@ DEBUG?=0
 FFTWTHREADS?=1
 ISMRMRD?=0
 NOEXEC_STACK?=0
+PARALLEL?=0
+PARALLEL_NJOBS?=
 
 LOG_BACKEND?=0
 LOG_SIEMENS_BACKEND?=0
@@ -63,6 +65,12 @@ else
 	ARFLAGS ?= rs
 endif
 
+ifeq ($(BUILDTYPE), Linux)
+ifneq (,$(findstring Red Hat,$(shell gcc --version)))
+	CPPFLAGS+=-I/usr/include/lapacke/
+	LDFLAGS+=-L/usr/lib64/atlas -ltatlas
+endif
+endif
 
 ifeq ($(UNAME),Cygwin)
 	BUILDTYPE = Cygwin
@@ -157,9 +165,16 @@ ISMRM_BASE ?= /usr/local/ismrmrd/
 
 
 
-# Main build targets are defined in build_targets.mk so that both CMake and Make can use the same definitions
-# set values for TBASE TFLP TNUM TRECO TCALIB TMRI TSIM TIO in build_targets.mk
-include build_targets.mk
+# Main build targets
+#
+TBASE=show slice crop resize join transpose squeeze flatten zeros ones flip circshift extract repmat bitmask reshape version delta copy casorati vec poly index
+TFLP=scale invert conj fmac saxpy sdot spow cpyphs creal carg normalize cdf97 pattern nrmse mip avg cabs zexp
+TNUM=fft fftmod fftshift noise bench threshold conv rss filter mandelbrot wavelet window var std fftrot
+TRECO=pics pocsense sqpics itsense nlinv moba nufft rof tgv sake wave lrmatrix estdims estshift estdelay wavepsf wshfl rtnlinv
+TCALIB=ecalib ecaltwo caldir walsh cc ccapply calmat svd estvar whiten rmfreq ssa bin
+TMRI=homodyne poisson twixread fakeksp looklocker upat
+TSIM=phantom traj signal
+TIO=toimg
 
 
 
@@ -168,8 +183,9 @@ MODULES = -lnum -lmisc -lnum -lmisc
 MODULES_pics = -lgrecon -lsense -liter -llinops -lwavelet -llowrank -lnoncart
 MODULES_sqpics = -lsense -liter -llinops -lwavelet -llowrank -lnoncart
 MODULES_pocsense = -lsense -liter -llinops -lwavelet
-MODULES_nlinv = -lnoir -liter -lnlops -llinops
-MODULES_moba = -lmoba -lnoir -liter -lnlops -llinops -lwavelet
+MODULES_nlinv = -lnoir -liter -lnlops -llinops -lnoncart
+MODULES_rtnlinv = -lnoir -liter -lnlops -llinops -lnoncart
+MODULES_moba = -lmoba -lnoir -lnlops -llinops -lwavelet -lnoncart -lsimu -llowrank -lgrecon -llinops -liter
 MODULES_bpsense = -lsense -lnoncart -liter -llinops -lwavelet
 MODULES_itsense = -liter -llinops
 MODULES_ecalib = -lcalib
@@ -185,8 +201,8 @@ MODULES_nufft = -lnoncart -liter -llinops
 MODULES_rof = -liter -llinops
 MODULES_tgv = -liter -llinops
 MODULES_bench = -lwavelet -llinops
-MODULES_phantom = -lsimu
-MODULES_bart = -lbox -lgrecon -lsense -lnoir -liter -llinops -lwavelet -llowrank -lnoncart -lcalib -lsimu -lsake -ldfwavelet -lnlops -lmoba
+MODULES_phantom = -lsimu -lgeom
+MODULES_bart = -lbox -lgrecon -lsense -lnoir -liter -llinops -lwavelet -llowrank -lnoncart -lcalib -lsimu -lsake -ldfwavelet -lnlops -lmoba -lgeom
 MODULES_sake = -lsake
 MODULES_traj = -lnoncart
 MODULES_wave = -liter -lwavelet -llinops -llowrank
@@ -196,7 +212,10 @@ MODULES_lrmatrix = -llowrank -liter -llinops
 MODULES_estdims = -lnoncart -llinops
 MODULES_ismrmrd = -lismrm
 MODULES_wavelet = -llinops -lwavelet
-MODULES_wshfl = -llinops -lwavelet -liter -llowrank
+MODULES_wshfl = -lgrecon -lsense -liter -llinops -lwavelet -llowrank -lnoncart
+MODULES_ssa = -lcalib
+MODULES_bin = -lcalib
+MODULES_signal = -lsimu
 
 
 MAKEFILES = $(wildcard $(root)/Makefiles/Makefile.*)
@@ -246,18 +265,19 @@ ifeq ($(NOEXEC_STACK),1)
 CPPFLAGS += -DNOEXEC_STACK
 endif
 
+
 ifeq ($(PARALLEL),1)
-MAKEFLAGS += -j
+MAKEFLAGS += -j$(PARALLEL_NJOBS)
 endif
 
 
 ifeq ($(MAKESTAGE),1)
 .PHONY: doc/commands.txt $(TARGETS)
-default all clean allclean distclean doc/commands.txt doxygen test utest utest_gpu gputest $(TARGETS):
-	make MAKESTAGE=2 $(MAKECMDGOALS)
+default all clean allclean distclean doc/commands.txt doxygen test utest utest_gpu gputest pythontest $(TARGETS):
+	$(MAKE) MAKESTAGE=2 $(MAKECMDGOALS)
 
 tests/test-%: force
-	make MAKESTAGE=2 $(MAKECMDGOALS)
+	$(MAKE) MAKESTAGE=2 $(MAKECMDGOALS)
 
 force: ;
 
@@ -450,13 +470,13 @@ ifeq ($(CUDA),1)
 $(1)objs += $$($(1)cudasrcs:.cu=.o)
 endif
 
-.INTERMEDIATE: $(filter %.o,$$($(1)objs))
+.INTERMEDIATE: $$($(1)objs)
 
 lib/lib$(1).a: lib$(1).a($$($(1)objs))
 
 endef
 
-ALIBS = misc num grecon sense noir iter linops wavelet lowrank noncart calib simu sake dfwavelet nlops moba lapacke box
+ALIBS = misc num grecon sense noir iter linops wavelet lowrank noncart calib simu sake dfwavelet nlops moba lapacke box geom
 $(eval $(foreach t,$(ALIBS),$(eval $(call alib,$(t)))))
 
 
@@ -496,13 +516,18 @@ MODULES_test_nufft += -lnoncart -llinops
 
 # lib num
 UTARGETS += test_multind test_flpmath test_splines test_linalg test_polynom test_window
-UTARGETS += test_blas test_mdfft test_ops test_ops_p
+UTARGETS += test_blas test_mdfft test_ops test_ops_p test_flpmath2
 UTARGETS_GPU += test_cudafft
 
 # lib simu
-UTARGETS += test_ode_bloch test_biot_savart
+UTARGETS += test_ode_bloch test_biot_savart test_signals
 MODULES_test_ode_bloch += -lsimu
 MODULES_test_biot_savart += -lsimu
+MODULES_test_signals += -lsimu
+
+# lib geom
+UTARGETS += test_geom
+MODULES_test_geom += -lgeom
 
 # lib iter
 UTARGETS += test_iter test_prox
@@ -570,13 +595,8 @@ ifeq ($(PARALLEL),1)
 else
 (%): %
 	$(AR) $(ARFLAGS) $@ $%
-	rm $%
 endif
 
-
-# we add the rm because intermediate files are not deleted
-# automatically for some reason
-# (but it produces errors for parallel builds for make all)
 
 
 
@@ -628,7 +648,7 @@ isclean: $(ALLMAKEFILES)
 ifeq ($(AUTOCLEAN),1)
 	@echo "CONFIGURATION MODIFIED. RUNNING FULL REBUILD."
 	touch isclean
-	make allclean || rm isclean
+	$(MAKE) allclean || rm isclean
 else
 ifneq ($(MAKECMDGOALS),allclean)
 	@echo "CONFIGURATION MODIFIED."
@@ -656,6 +676,14 @@ pythontest: ${TESTS_PYTHON}
 
 # unit tests
 
+UTEST_RUN=
+
+ifeq ($(UTESTLEAK),1)
+# we blacklist some targets because valgrind crashes (blas related)
+UTARGETS:=$(filter-out test_flpmath test_blas,$(UTARGETS))
+UTEST_RUN=valgrind --quiet --leak-check=full --error-exitcode=1 valgrind --suppressions=./valgrind.supp --log-file=/dev/null
+endif
+
 # define space to faciliate running executables
 define \n
 
@@ -663,7 +691,7 @@ define \n
 endef
 
 utests-all: $(UTARGETS)
-	$(patsubst %,$(\n)./%,$(UTARGETS))
+	$(patsubst %,$(\n)$(UTEST_RUN) ./%,$(UTARGETS))
 
 utest: utests-all
 	@echo ALL CPU UNIT TESTS PASSED.
