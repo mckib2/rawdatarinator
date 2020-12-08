@@ -11,7 +11,9 @@ on:
       - published
 
 env:
-  CIBW_SKIP: cp27-* pp27-* cp35-* # skip python2.7 builds, python3.5 EOL
+  # skip python2.7 builds, python3.5 EOL
+  # as well as pypi mac builds that fail due to bad numpy builds
+  CIBW_SKIP: cp27-* pp27-* cp35-* pp36-macosx_x86_64 pp37-macosx_x86_64
 
 jobs:
   build_wheels:
