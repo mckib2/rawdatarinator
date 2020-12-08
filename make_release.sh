@@ -11,9 +11,7 @@ source update_bart.sh
 (cd bart && echo 'VERSION('`./git-version.sh`')' > ../src/version.inc)
 
 # Update Cython, get dependencies, and make C files
-export __DO_CYTHON_BUILD=1
 source make_cython.sh
-export __DO_CYTHON_BUILD=0
 
 # Generate distribution archives
 pip install --upgrade setuptools wheel

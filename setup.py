@@ -1,7 +1,7 @@
-'''Setup.py
-'''
+'''Setup.py'''
 
-from os import getenv
+from distutils.spawn import find_executable
+import subprocess
 from setuptools import setup, Extension, find_packages
 from setuptools.command.build_ext import build_ext as _build_ext
 
@@ -33,22 +33,22 @@ class build_ext(_build_ext):
         if c in lopts:
             for e in self.extensions:
                 e.extra_link_args = lopts[c]
-
-
         _build_ext.build_extensions(self)
 
 
-# See make_release.sh, __DO_CYTHON_BUILD is set to 1 when we want
-# to convert *.pyx into *.c files and 0 when we want to compile *.c
-pyx_or_c = 'c'
-if getenv('__DO_CYTHON_BUILD') == '1':
-    pyx_or_c = 'pyx'
-    print('DOING CYTHON')
+# If we have Cython, go ahead and regenerate the sources
+if find_executable('cython') is not None:
+    print('Running cython...')
+    try:
+        subprocess.call(['cython -3 src/*.pyx'], shell=True)
+    except subprocess.CalledProcessError:
+        print('Cython failed! Going to try to keep going...')
+
 
 extensions = [
     Extension(
         'rawdatarinator.twixread',
-        [
+        sources=[
             "bart/src/misc/version.c",
             "bart/src/num/vecops.c",
             "bart/src/num/simplex.c",
@@ -61,24 +61,25 @@ extensions = [
             "bart/src/misc/mmio.c",
             "bart/src/misc/debug.c",
             "bart/src/twixread.c",
-            "src/twixread_pyx.%s" % pyx_or_c
+            "src/twixread_pyx.c",
         ],
         include_dirs=['src/', 'bart/src/'],
-        # extra_compile_args=['-O3'],
     ),
     Extension(
         'rawdatarinator.read',
-        ['src/readcfl.%s' % pyx_or_c],
-        include_dirs=[]),
+        sources=['src/readcfl.c'],
+        include_dirs=[]
+    ),
     Extension(
         'rawdatarinator.write',
-        ['src/writecfl.%s' % pyx_or_c],
-        include_dirs=[]),
+        sources=['src/writecfl.c'],
+        include_dirs=[]
+    ),
 ]
 
 setup(
     name='rawdatarinator',
-    version='1.3.1',
+    version='1.3.2',
     author='Nicholas McKibben',
     author_email='nicholas.bgp@gmail.com',
     packages=find_packages(),
