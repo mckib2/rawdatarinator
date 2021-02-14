@@ -1,14 +1,12 @@
 name: Build and upload to PyPI
 
 # Build on every branch push, tag push, and pull request change:
-on: [push, pull_request]
+# on: [push, pull_request]
 # Alternatively, to publish when a (published) GitHub Release is created, use the following:
-# on:
-# #   push:
-# #   pull_request:
-#   release:
-#     types:
-#       - published
+on:
+  release:
+    types:
+      - published
 
 env:
   # skip python2.7 builds, python3.5 EOL, python3.6 EOL
@@ -49,6 +47,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
+        with:
+          submodules: recursive
 
       - uses: actions/setup-python@v2
         name: Install Python
