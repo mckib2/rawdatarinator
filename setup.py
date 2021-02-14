@@ -69,7 +69,7 @@ extensions = [
 
 setup(
     name='rawdatarinator',
-    version='1.3.2',
+    version='1.4.0',
     author='Nicholas McKibben',
     author_email='nicholas.bgp@gmail.com',
     packages=find_packages(),
@@ -83,7 +83,7 @@ setup(
     ],
     cmdclass={'build_ext': build_ext},
     setup_requires=['numpy'],
-    python_requires='>=3.5',
+    python_requires='>=3.7',
 
     # And now for Cython generated files...
     ext_modules=extensions

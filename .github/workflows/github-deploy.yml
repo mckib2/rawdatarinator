@@ -4,16 +4,14 @@ name: Build and upload to PyPI
 # on: [push, pull_request]
 # Alternatively, to publish when a (published) GitHub Release is created, use the following:
 on:
-#   push:
-#   pull_request:
   release:
     types:
       - published
 
 env:
-  # skip python2.7 builds, python3.5 EOL
+  # skip python2.7 builds, python3.5 EOL, python3.6 EOL
   # as well as pypy mac builds that fail due to bad numpy builds
-  CIBW_SKIP: cp27-* pp27-* cp35-* pp36-macosx_x86_64 pp37-macosx_x86_64
+  CIBW_SKIP: cp27-* pp27-* cp35-* cp36-* pp36-macosx_x86_64 pp37-macosx_x86_64
 
 jobs:
   build_wheels:
@@ -21,10 +19,12 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-latest, macos-latest]
+        os: [ubuntu-latest, macos-10.15]
 
     steps:
       - uses: actions/checkout@v2
+        with:
+          submodules: recursive
 
       - uses: actions/setup-python@v2
         name: Install Python
@@ -47,6 +47,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
+        with:
+          submodules: recursive
 
       - uses: actions/setup-python@v2
         name: Install Python
