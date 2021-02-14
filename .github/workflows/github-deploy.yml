@@ -11,9 +11,9 @@ on: [push, pull_request]
 #       - published
 
 env:
-  # skip python2.7 builds, python3.5 EOL
+  # skip python2.7 builds, python3.5 EOL, python3.6 EOL
   # as well as pypy mac builds that fail due to bad numpy builds
-  CIBW_SKIP: cp27-* pp27-* cp35-* pp36-macosx_x86_64 pp37-macosx_x86_64
+  CIBW_SKIP: cp27-* pp27-* cp35-* cp36-* pp36-macosx_x86_64 pp37-macosx_x86_64
 
 jobs:
   build_wheels:
@@ -25,6 +25,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v2
+        with:
+          submodules: recursive
 
       - uses: actions/setup-python@v2
         name: Install Python
