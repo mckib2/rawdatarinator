@@ -45,8 +45,10 @@ extensions = [
             "bart/src/misc/opts.c",
             "bart/src/misc/misc.c",
             "bart/src/misc/io.c",
+            "bart/src/misc/list.c",
             "bart/src/misc/mmio.c",
             "bart/src/misc/debug.c",
+            "bart/src/misc/memcfl.c",
             "bart/src/twixread.c",
             "src/twixread_pyx.c",
         ],
@@ -69,7 +71,7 @@ extensions = [
 
 setup(
     name='rawdatarinator',
-    version='1.4.0',
+    version='1.5.0',
     author='Nicholas McKibben',
     author_email='nicholas.bgp@gmail.com',
     packages=find_packages(),

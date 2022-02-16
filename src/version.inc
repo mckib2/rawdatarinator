@@ -1,1 +1,1 @@
-VERSION(v0.6.00)
+VERSION(v0.7.00)
